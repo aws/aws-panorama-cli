@@ -1,0 +1,5 @@
+{
+    "dockerfile_path": "Dockerfile",
+    "model_dir": "resnet18",
+    "script_path": "people_counter_lite.py"
+}

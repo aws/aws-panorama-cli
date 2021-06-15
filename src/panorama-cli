@@ -1,0 +1,719 @@
+#!/usr/bin/env python3
+
+from posixpath import join
+import sys
+import os
+import subprocess
+import json
+import uuid
+import time
+import shutil
+import argparse
+import hashlib
+import time
+#import pkg_resources
+import importlib.resources as pkg_resources
+from pathlib import Path
+import pkgutil
+
+from PanoramaConfig import Config
+from PanoramaConfig import ConfigType
+
+# Static values
+RUNNING_APP_LIST = 'running_apps'
+DOCKERFILE_PATH = 'dockerfile_path'
+MODEL_DIR = 'model_dir'
+SCRIPT_PATH = 'script_path'
+COMPILE_ROLE_ARN = 'role_arn_for_model_compilation'
+COMPILE_INPUT_URI = 'model_s3_input_uri'
+INPUT_SHAPE = 'input_shape'
+FRAMEWORK = 'framework'
+COMPILE_OUTPUT_URI = 'model_s3_output_uri'
+
+DEFAULT_IMAGE_NAME = 'panorama_img'
+DEFAULT_CONTAINER_NAME = 'panorama_ctn'
+PANORAMA_DIR = 'Panorama'
+PANORAMA_RUNC_TAR = 'panorama_runc.tar'
+RUNC_DIR = '/data/runc'
+UNTAR_SCRIPT_PATH = RUNC_DIR + '/untar.sh'
+
+resouce_dir = os.path.join(os.path.dirname(__file__), 'resources')
+CONFIG_PATH = 'config.json'
+VAR_PATH = 'var.json'
+PROJECT_SKELETON_PATH = 'resources/project_skeleton'
+PACKAGE_SKELETON_PATH = 'resources/package_skeleton'
+DESCRIPTOR_TEMPLATE_PATH = 'resources/descriptor_template.json'
+DOWNLOAD_ASSET_TEMPLATE_PATH = 'resources/download_model.json'
+BUILD_ASSET_TEMPLATE_PATH = 'resources/build_package.json'
+FILE_VIDEO_SOURCE_PACKAGE_PATH = 'resources/video_from_file_package'
+JOB_ID = 'job_id'
+COMPILATION_JOB_STATUS = 'CompilationJobStatus'
+FAILURE_REASON = 'FailureReason'
+
+CLI_DIR = os.path.dirname(os.path.realpath(__file__))
+
+# This is subject to change once there is jetpack upgrade.
+COMPILER_OPTIONS = {
+    "gpu-code": "sm_72",
+    "trt-ver": "7.1.3",
+    "cuda-ver": "10.2"
+}
+
+TARGET_PLATFORM = {
+    "Os": "LINUX",
+    "Arch": "ARM64",
+    "Accelerator": "NVIDIA"
+}
+
+STOPPING_CONDITION = {
+    "MaxRuntimeInSeconds": 900,
+    "MaxWaitTimeInSeconds": 60
+}
+
+
+# Utility classes
+class InputConfig:
+    def __init__(self, s3uri, framework, input_shape):
+        self.s3uri = s3uri
+        self.framework = framework
+        self.input_shape = input_shape
+
+    # TODO: use package for serialization.
+    def __str__(self):
+        res = '\"{'
+
+        res += '\\\"S3Uri\\\": \\\"' + self.s3uri + '\\\", '
+
+        res += '\\\"DataInputConfig\\\": \\\"{'
+        res += serialize_dict_with_quote({"input": self.input_shape}, 1)
+        res += '}\\\", '
+
+        res += '\\\"Framework\\\": \\\"' + self.framework + '\\\"'
+
+        res += '}\"'
+        return res
+
+
+class OutputConfig:
+    def __init__(self, s3uri, compiler_options, target_platform):
+        self.s3uri = s3uri
+        self.compiler_options = compiler_options
+        self.target_platform = target_platform
+
+    def __str__(self):
+        res = '\"{'
+        res += '\\\"S3OutputLocation\\\": \\\"' + self.s3uri + '\\\", '
+
+        res += '\\\"TargetPlatform\\\": {'
+        res += serialize_dict_with_quote(self.target_platform, 2)
+        res += '}, '
+
+        res += '\\\"CompilerOptions\\\": \\\"{'
+        res += serialize_dict_with_quote(self.compiler_options, 3)
+        res += '}\\\"'
+
+        res += '}\"'
+        return res
+
+
+# Utility functions
+def execute(cmd, runtime_print_output=False, logger=None):
+    if not runtime_print_output:
+        proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        stdout = proc.stdout.decode('utf-8')
+        if logger is not None:
+            logger.debug('Executing: ' + cmd)
+            logger.debug(stdout)
+    else:
+        proc = subprocess.run(cmd, shell=True)
+        stdout = None
+    return proc.returncode, stdout
+
+
+def stop_media_pipeline():
+    status, output = execute(['sudo systemctl stop job_agent.service'])
+    if status == 0:
+        print("Successfully stopped mediapipeline")
+    else:
+        print("Stopping mediapipeline failed")
+        print(output)
+    return status
+
+
+def start_media_pipeline():
+    status, output = execute(['sudo systemctl start job_agent.service'])
+    if status == 0:
+        print('Successfully started media pipeline.')
+    else:
+        print('Starting media pipeline failed.')
+        print(output)
+    return status
+
+
+def open_config():
+    try:
+        with open(CONFIG_PATH) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        sys.exit('config.json file not found in current directory.')
+
+
+#Will be handled by OCC
+def container_exists():
+    status, output = execute(['sudo runc list -f json'])
+    if status != 0:
+        print(output)
+        sys.exit('Error fetching containers')
+
+    containers = json.loads(output)
+    if containers is None:
+        return False
+
+    for container in containers:
+        if container.get('id') == DEFAULT_CONTAINER_NAME:
+            return True
+
+    return False
+
+
+#Will be handled by OCC
+def stop_container():
+    status, output = execute(['sudo runc delete ' + DEFAULT_CONTAINER_NAME])
+    if status != 0:
+        print(output)
+        sys.exit('Failed to delete runc container')
+
+    print("Successfully stopped application")
+
+
+#Will be handled by OCC
+def start_container():
+    status, output = execute(['sudo runc create -b ' + RUNC_DIR + ' ' + DEFAULT_CONTAINER_NAME], runtime_print_output=True)
+    if status != 0:
+        sys.exit('Failed to create runc container')
+
+    status, output = execute(['sudo runc start ' + DEFAULT_CONTAINER_NAME])
+    if status != 0:
+        print(output)
+        sys.exit('Failed to start runc container')
+
+    print("Successfully started application")
+
+
+def serialize_dict_with_quote(dict_to_prt, option):
+    res = ''
+    for key in dict_to_prt:
+        if option == 1:  # \\\"key\\\": value
+            res += ('\\\\\\"' + key + '\\\\\\": ')
+            res += str(dict_to_prt[key]) + ', '
+        elif option == 2:  # \"key\": \"value\"
+            res += ('\\\"' + key + '\\\": ')
+            res += '\\\"' + str(dict_to_prt[key]) + '\\\", '
+        elif option == 3:  # \\\"key\\\": \\\"value\\\"
+            res += ('\\\\\\"' + key + '\\\\\\": ')
+            res += '\\\\\\"' + str(dict_to_prt[key]) + '\\\\\\", '
+        elif option == 4:  # \"key\": value
+            res += ('\\\"' + key + '\\\": ')
+            res += str(dict_to_prt[key]) + ', '
+    if len(res) >= 2:
+        res = res[:-2]
+    return res
+
+
+def get_model_compilation_info(job_id):
+    role_arn = args.compile_role_arn
+    framework = args.framework
+    s3uri_input = args.model_s3_input_uri
+    input_shape = args.input_shape
+    input_config = InputConfig(s3uri_input, framework, input_shape)
+    print('Input config is: ' + str(input_config))
+
+    s3uri_output = args.model_s3_output_uri + job_id
+    output_config = OutputConfig(s3uri_output, COMPILER_OPTIONS, TARGET_PLATFORM)
+    print('Output config is: ' + str(output_config) + '\n')
+
+    return role_arn, input_config, output_config
+
+
+def get_compilation_details():
+    try:
+        with open(VAR_PATH, 'r') as f:
+            var = json.load(f)
+    except FileNotFoundError:
+        sys.exit('var.json not found in current directory. Make sure you run model compilation first.')
+    job_id = var[JOB_ID]
+    output_uri = var[COMPILE_OUTPUT_URI] + job_id + '/'
+    return job_id, output_uri
+
+
+def get_compilation_job_response(job_id):
+    cmd = 'aws sagemaker describe-compilation-job --compilation-job-name ' + job_id
+    return_code, out = execute(cmd)
+    if return_code != 0:
+        print(out)
+        sys.exit('Error when fetching compilation job status.')
+    resp = json.loads(out)
+    return resp
+
+def get_hash(name):
+    return hashlib.sha256(name.encode('utf-8')).hexdigest()
+
+def create_ext4_fs_image(tar_path, image_name):
+    return_code, out = execute(["dd if=/dev/zero of=" + image_name +" bs=512M count=1"])
+    if return_code != 0:
+        print(out)
+        sys.exit('Error while creating an empty disk image')
+    return_code, empty_loop_device = execute(["losetup -f"])
+    empty_loop_device = empty_loop_device.rstrip()
+    mount_path = "/mnt/" + image_name.split('.')[0]
+    if return_code != 0:
+        print(out)
+        sys.exit('Error while trying to get empty loop device')
+    commands = ["losetup --find --show " + image_name + " " + empty_loop_device, "mkfs.ext4 " + empty_loop_device, "mkdir -p " + mount_path, "mount " + empty_loop_device + " " + mount_path, "cp " + tar_path + " " + mount_path, "tar -xvf " + mount_path + "/*.tar.gz -C " + mount_path, "rm " + mount_path + "/*.tar.gz", "umount " + mount_path, "losetup -d " + empty_loop_device, "rm -rf /mnt/dx_tar_file"]
+    for cmd in commands:
+        print(cmd)
+        return_code, out = execute([cmd])
+        if return_code != 0:
+            print(out)
+            sys.exit('Error while creating a fs image from tar file')
+    print("Created image " + image_name + " from the tar file")
+
+def create_squash_fs_image(tar_path, image_name):
+    tar_dir = os.path.dirname(tar_path)
+    commands = ["tar -xvf " + tar_path + " --directory " + tar_dir, "rm -rf " + tar_path, "mksquashfs " + tar_dir + ' ' +image_name, "truncate -s +3M " + image_name, "rm -rf " + tar_dir]
+    for cmd in commands:
+        print(cmd)
+        return_code, out = execute([cmd])
+        if return_code != 0:
+            print(out)
+            sys.exit('Error while creating a fs image from tar file')
+    print("Created image " + image_name + " from the tar file")
+
+# Execution commands
+class CLICommand:
+    def __init__(self, function, help_message=None):
+        self.func = function
+        self.help_message = help_message
+
+def help():
+    for command in CLI_DICT.values():
+        if command.help_message is not None:
+            print(command.help_message)
+
+
+def config():
+    required_configs = (
+        Config(DOCKERFILE_PATH, ConfigType.FILE),
+        Config(MODEL_DIR, ConfigType.DIR),
+        Config(SCRIPT_PATH, ConfigType.FILE)
+    )
+
+    configs = open_config()
+
+    missing_configs = []
+    invalid_configs = []
+    for required_config in required_configs:
+        config_value = configs.get(required_config.key)
+        if config_value is None:
+            missing_configs.append(required_config.key)
+        elif not required_config.validate(config_value):
+            invalid_configs.append(required_config.key)
+
+    status_code = 0
+    if (len(missing_configs) == 0) and (len(invalid_configs) == 0):
+        print("Config file valid")
+
+    if len(missing_configs) > 0:
+        print("Missing configs: ")
+        print(missing_configs)
+        status_code = 1
+
+    if len(invalid_configs) > 0:
+        print("Invalid configs: ")
+        print(invalid_configs)
+        status_code = 1
+    return configs, status_code
+
+def build():
+    package_src_path = os.path.join(args.package_path,'src')
+    package_name = args.package_name
+    entry_file_rel_path = os.path.relpath(args.entry_file_path, package_src_path)
+    
+    commands = ["TMPDIR=$(pwd) sudo docker build -t " + package_name + " " + package_src_path, "sudo docker export --output=" + package_name + ".tar $(sudo docker create " + package_name + ":latest)", "mkdir -p rootfs && tar -xf " + package_name + ".tar -C rootfs", "mkdir -p imageDir", "mv rootfs imageDir", "rm -rf " + package_name + ".tar"]
+    for cmd in commands:
+        print(cmd)
+        return_code, out = execute([cmd], runtime_print_output=True)
+        if return_code != 0:
+            print(out)
+            sys.exit('Error while creating and exporting a docker image')
+
+    descriptor_src_path = os.path.join(CLI_DIR, DESCRIPTOR_TEMPLATE_PATH)
+    descriptor_dst_path = os.path.join("./imageDir", "descriptor.json")
+    shutil.copyfile(descriptor_src_path, descriptor_dst_path)
+    with open(descriptor_dst_path, "r+") as f:
+        descriptor_template = json.load(f)
+        descriptor_template["runtimeDescriptor"]["entry"]["path"] = "python3"
+        descriptor_template["runtimeDescriptor"]["entry"]["name"] = "/Panorama/" + entry_file_rel_path
+        f.seek(0)
+        json.dump(descriptor_template, f, indent=4)
+        f.truncate()
+
+    package_contents = os.listdir(package_src_path)
+    for file_name in package_contents:
+        if file_name != "Dockerfile":
+            shutil.copy(os.path.join(package_src_path, file_name), "./imageDir/rootfs/Panorama")
+    image_name = get_hash(package_name) + ".sqfs"
+    commands= ["mksquashfs ./imageDir " + image_name, "truncate -s +3M " + image_name, "rm -rf imageDir"]
+    for cmd in commands:
+        print(cmd)
+        return_code, out = execute([cmd], runtime_print_output=True)
+        if return_code != 0:
+            print(out)
+            sys.exit('Error while creating a file system image from a docker image')
+    
+    descriptor_src_path = os.path.join(os.getcwd(), image_name)
+    descriptor_dst_path = os.path.join(os.getcwd(), "assets/" + image_name)
+    shutil.move(descriptor_src_path, descriptor_dst_path)
+
+    assest_blob_path = os.path.join(CLI_DIR, BUILD_ASSET_TEMPLATE_PATH)
+    with open(assest_blob_path) as f:
+        asset_template = json.load(f)
+        asset_template["name"] = package_name + "_container_binary"
+        asset_template["implementations"][0]["assetUri"] = image_name
+        print("Add the following json snippet into the assets section of package.json at " + args.package_path)
+        print(json.dumps(asset_template, indent=4))
+
+def export():
+    stop(print_app_log=False)
+    status, output = execute(['sudo docker export --output="' + RUNC_DIR + '/' + PANORAMA_RUNC_TAR + 
+        '" $(sudo docker create --name ' + DEFAULT_CONTAINER_NAME + ' ' + DEFAULT_IMAGE_NAME + ')'])
+
+    execute('sudo docker rm ' + DEFAULT_CONTAINER_NAME)
+
+    if status != 0:
+        sys.exit("Failed to export docker container.")
+
+    status, output = execute(['sudo ' + UNTAR_SCRIPT_PATH + ' ' + PANORAMA_RUNC_TAR])
+
+    if status == 0:
+        print("Successfully exported image.")
+    else:
+        print(output)
+        sys.exit("Failed to untar rootfs")
+
+
+def start():
+    if container_exists():
+        sys.exit('Application is already running.  Please restart')
+
+    if start_media_pipeline() != 0:
+        sys.exit('Failed to run application due to media pipeline failure.')
+
+    time.sleep(30)
+    start_container()
+
+
+def stop(print_app_log=True):
+    # Stop mediapipeline
+    if stop_media_pipeline() != 0:
+        sys.exit('Failed to stop mediapipeline.')
+
+    # Stop container
+    if container_exists():
+        stop_container()
+    elif print_app_log:
+        print('No running application')
+
+
+def restart():
+    #Stop
+    stop()
+
+    #Start
+    start()
+
+
+def compile_model():
+    job_id = str(uuid.uuid4()).split('-')[0]
+    role_arn, input_config, output_config = get_model_compilation_info(job_id)
+
+    str_stop_condition = '\"{' + serialize_dict_with_quote(STOPPING_CONDITION, 4) + '}\"'
+
+    cmd = 'aws sagemaker create-compilation-job --compilation-job-name ' + job_id + ' --role-arn ' + role_arn + \
+        ' --input-config ' + str(input_config) + ' --output-config ' + str(output_config) + ' --stopping-condition ' + \
+        str_stop_condition
+    print('Calling Sagemaker API: ' + cmd)
+    return_code, out = execute(cmd)
+    print(out)
+    if return_code == 0:
+        print('Successfully created model compilation job with id: ' + job_id)
+        dict_job_id = {JOB_ID: job_id, COMPILE_OUTPUT_URI: args.model_s3_output_uri}
+        with open(VAR_PATH, 'w+') as f:
+            json.dump(dict_job_id, f, indent=4)
+    else:
+        print('Compilation job creation failure.')
+
+
+def download_model():
+    file_base_name = args.model_name
+    asset_dir = "./assets/" + file_base_name + "/"
+    model_dir = asset_dir + file_base_name + '.tar.gz'
+    if not args.model_s3_uri:
+        job_id, s3_uri = get_compilation_details()
+        print('Getting response for job_id ' + job_id)
+        resp = get_compilation_job_response(job_id)
+        # Neo API doc: https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DescribeCompilationJob.html
+        status = resp[COMPILATION_JOB_STATUS]
+        if status == 'STARTING' or status == 'INPROGRESS':
+            print('Waiting for compilation job ' + job_id + ' to be completed. This may take a few minutes. '
+                                                            'Please call again later.')
+            print('Current compilation job status: ' + status)
+            return
+        elif status != 'COMPLETED':
+            print('Compilation job terminated with status: ' + status)
+            print('Failure reason: ' + resp[FAILURE_REASON])
+            return
+        print('Compilation job completed. Downloading model artifacts...')
+        cmd = 'aws s3 ls ' + s3_uri
+        return_code, out = execute(cmd)
+        if return_code != 0:
+            sys.exit('Error when fetching compiled model in S3.')
+        model_artifacts = out.split()[-1]
+        s3_uri = os.path.join(s3_uri, model_artifacts)
+        cmd = 'aws s3 cp ' + s3_uri + ' ' + model_dir
+        os.remove(VAR_PATH)
+    else:
+        s3_uri = args.model_s3_uri
+        cmd = 'aws s3 cp ' + s3_uri + ' ' + model_dir
+
+    start = time.time()
+    return_code, out = execute(cmd, runtime_print_output=True)
+    print("Time taken to download ", time.time() - start)
+    if return_code != 0:
+        print(out)
+        sys.exit('Error when downloading compiled artifacts (' + s3_uri + ') to ' + model_dir)
+    print('Successfully downloaded compiled artifacts (' + s3_uri + ') to ' + model_dir)
+
+    descriptor_src_path = os.path.join(CLI_DIR, DESCRIPTOR_TEMPLATE_PATH)
+    descriptor_dst_path = os.path.join(asset_dir, "descriptor.json")
+    shutil.copyfile(descriptor_src_path, descriptor_dst_path)
+
+    start = time.time()
+    
+    if args.ext4fs:
+        model_img_name = get_hash(file_base_name) + ".img"
+        create_ext4_fs_image(model_dir, model_img_name)
+    else:
+        model_img_name = get_hash(file_base_name) + ".sqfs"
+        create_squash_fs_image(model_dir, model_img_name)
+    print("Time taken to create fs image", time.time() - start)
+    image_src_path = os.path.join(os.getcwd(), model_img_name)
+    image_dst_path = os.path.join(os.getcwd(), "assets", model_img_name)
+    shutil.move(image_src_path, image_dst_path)
+    
+    assest_blob_path = os.path.join(CLI_DIR, DOWNLOAD_ASSET_TEMPLATE_PATH)
+    with open(assest_blob_path) as f:
+        asset_template = json.load(f)
+        asset_template["name"] = args.model_name
+        asset_template["implementations"][0]["assetUri"] = model_img_name
+        print("Copy the following in the assets section of package.json")
+        print(json.dumps(asset_template, indent=4))
+
+def create_package():
+    template_path = os.path.join(CLI_DIR, PACKAGE_SKELETON_PATH)
+    pkg_path = os.path.join(os.getcwd(), "packages/accountXYZ-" + args.name + "-1.0")
+    shutil.copytree(template_path, pkg_path)
+
+    package_json_path = os.path.join(pkg_path, "package.json")
+    with open(package_json_path, "r+") as f:
+        package_json = json.load(f)
+        package_json["nodePackage"]["name"] = args.name
+        package_json["nodePackage"]["description"] = "Default description for package " + args.name
+        f.seek(0)
+        json.dump(package_json, f, indent=4)
+        f.truncate()
+
+    graphs_path = os.path.join(os.getcwd(), "graphs")
+    graph_dir = os.listdir(graphs_path)[0]
+    graph_json_path = os.path.join(graphs_path, graph_dir, "graph.json")
+    with open(graph_json_path, "r+") as f:
+        graph_json = json.load(f)
+        graph_json["nodeGraph"]["packages"].append({
+                            "name": "accountXYZ::" + args.name,
+                            "version": "1.0"
+                        })
+        f.seek(0)
+        json.dump(graph_json, f, indent=4)
+        f.truncate()
+
+    if(args.camera):
+        execute(["rm -rf " + pkg_path + "/src"])
+    print('Successfully created package ' + args.name)
+
+def create_fs():
+    start = time.time()
+    file_name = os.path.basename(args.file_path)
+    file_base_name = file_name.split('.')[0]
+    if args.ext4fs:
+        model_img_name = file_base_name + ".img"
+        create_ext4_fs_image(args.file_path, model_img_name)
+    else:
+        model_img_name = file_base_name + ".sqfs"
+        create_squash_fs_image(args.file_path, model_img_name)
+    print("Time taken to create fs image", time.time() - start)
+
+def init_project():
+    src_path = os.path.join(CLI_DIR, PROJECT_SKELETON_PATH)
+    dst_path = os.path.join(os.getcwd(), args.name)
+    shutil.copytree(src_path, dst_path)
+    new_graph_dir = os.path.join(dst_path, "graphs", args.name)
+    os.mkdir(new_graph_dir)
+    new_graph_path = os.path.join(new_graph_dir, "graph.json")
+    graph_path = os.path.join(dst_path, "graphs", "graph.json")
+    shutil.move(graph_path, new_graph_path)
+    print('Successfully created the project skeleton at ' + dst_path)
+
+
+def create_file_based_source():
+    src_path = os.path.join(CLI_DIR, FILE_VIDEO_SOURCE_PACKAGE_PATH)
+    dst_path = os.path.join(os.getcwd(), "packages/video_from_file_package")
+    shutil.copytree(src_path, dst_path)
+    print('Successfully created the file based video source package at ' + dst_path)
+    print('Update assetUri in package.json to point to the right video')
+
+def package_application():
+    graphs_path = os.path.join(os.getcwd(), "graphs")
+    graph_dir = os.listdir(graphs_path)[0]
+    graph_json_path = os.path.join(graphs_path, graph_dir, "graph.json")
+    with open(graph_json_path, "r+") as f:
+        graph_json = json.load(f)
+    assets_dir = os.path.join(os.getcwd(), 'assets')
+    packages_dir = os.path.join(os.getcwd(), 'packages')
+    package_list = os.listdir(packages_dir)
+    for package in package_list:
+        package_path = os.path.join(packages_dir, package)
+        package_name = '-'.join(package.split('-')[1:-1]) #TODO Too hacky right now, improve the logic. Extracts package_name, for example, people-counter-package from 619501627742-people-counter-package-1.0
+        print("Uploading package " + package_name)
+        status, output = execute(['aws panorama create-package --package-name ' + package_name])
+        if status != 0:
+            print(output)
+            sys.exit('Error creating package ' + package + ' on Panorama')
+        package_info = json.loads(output)
+        storage_location = package_info["StorageLocation"]
+        package_json_path = os.path.join(package_path, "package.json")
+        with open(package_json_path, "r+") as f:
+            package_json = json.load(f)
+        if "camera" not in package_name: #TODO: Find a better way to detect camera packages
+            for asset in package_json["nodePackage"]["assets"]:
+                for implementation in asset["implementations"]:
+                    asset_uri = implementation["assetUri"]
+                    asset_path = os.path.join(assets_dir, asset_uri)
+                    status, output = execute(["aws s3 cp " + asset_path + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + asset_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
+                    if status != 0:
+                        print(output)
+                        sys.exit('Error uploading package asset ' + asset_uri + ' to S3')
+        package_json_hash = ""
+        with open(package_json_path,"rb") as f:
+            bytes = f.read()
+            package_json_hash = hashlib.sha256(bytes).hexdigest()
+            package_version = "1.0" #TODO Extract it correctly from graph.json
+            status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + package_json_path + " --acl bucket-owner-full-control"], runtime_print_output=True)
+            if status != 0:
+                print(output)
+                sys.exit('Error uploading package json to S3')
+        status, output = execute(["aws panorama register-package-version --package-id " + package_info["PackageId"] + " --package-version " + package_version + " --patch-version " + package_json_hash + " --no-mark-latest"], runtime_print_output=True)
+        if status != 0:
+            print(output)
+            sys.exit('Error registering package json with Panorama')
+
+#Sideloading Code
+device_location = 'mht@10.92.200.61:/data/app_sideload'
+def setup_app_on_device():
+    status, output = execute(['scp -r ' + os.getcwd() + ' ' + device_location])
+    if status != 0:
+        print(output)
+        sys.exit('Error transferring app to the device')
+
+def deploy_package_on_device():
+    app_name = os.path.basename(os.getcwd())
+    for package in args.packages:
+        print(device_location, app_name, package)
+        status, output = execute(['scp -r ' + package + ' ' + os.path.join(device_location, app_name, "packages")], runtime_print_output=True)
+        if status != 0:
+            print(output)
+            sys.exit('Error transferring package ' + package + ' to the device')
+    deploy_app_metadata = {}
+    deploy_app_metadata["application_path"] = "/data/app_sideload/" + app_name
+    deploy_app_metadata["packages_to_build"] = args.packages
+    deploy_app_metadata["asset_names"] = args.asset_names
+
+    with open("deploy_application.json", "w+") as f:
+        json.dump(deploy_app_metadata, f, indent=4)
+    status, output = execute(['scp deploy_application.json ' + device_location], runtime_print_output=True)
+    execute(['rm deploy_application.json'])
+
+parser = argparse.ArgumentParser()
+subparsers = parser.add_subparsers()
+
+init_project_parser = subparsers.add_parser("init-project", help="Initializes and creates the directory structure for the project")
+init_project_parser.add_argument("--name", required=True, help="Name of the project")
+init_project_parser.set_defaults(func=init_project)
+
+compile_model_parser = subparsers.add_parser("compile-model", help="Compile ML model and export the artifacts to S3 bucket")
+compile_model_parser.add_argument("--model-s3-input-uri", required=True, help="S3 URI of the raw input model")
+compile_model_parser.add_argument("--model-s3-output-uri", required=True, help="S3 URI of the output folder")
+compile_model_parser.add_argument("--framework", required=True, help="Framework in which the model was trained")
+compile_model_parser.add_argument("--input-shape", required=True, nargs="+", type=int, help="Input shape for the model as a list")
+compile_model_parser.add_argument("--compile-role-arn", required=True, help="Amazon Resource Name (ARN) of an IAM role that enables Amazon SageMaker to perform tasks on your behalf")
+compile_model_parser.set_defaults(func=compile_model)
+
+download_model_parser = subparsers.add_parser("download-model", help="Download compiled model artifacts")
+download_model_parser.add_argument("--model-name", required=True, help="Name for model being downloaded")
+download_model_parser.add_argument("--model-s3-uri", help="S3 URI of the pre-compiled model")
+download_model_parser.add_argument('-ext4fs', action='store_true')
+download_model_parser.set_defaults(func=download_model)
+
+create_package_parser = subparsers.add_parser("create-package", help="Create a new package")
+create_package_parser.add_argument("--name", required=True, help="Name of the project")
+create_package_parser.add_argument('-camera', action='store_true')
+create_package_parser.set_defaults(func=create_package)
+
+file_based_source_parser = subparsers.add_parser("create-file-based-data-source", help="Generate a package for file based source")
+file_based_source_parser.set_defaults(func=create_file_based_source)
+
+create_fs_parser = subparsers.add_parser("create-fs", help="Creates fs for a given tar file")
+create_fs_parser.add_argument("--file-path", required=True, help="Path for the tar file")
+create_fs_parser.add_argument('-ext4fs', action='store_true')
+create_fs_parser.set_defaults(func=create_fs)
+
+build_parser = subparsers.add_parser("build", help="Build the package")
+build_parser.add_argument("--package-name",  required=True, help="Name of the package")
+build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
+build_parser.add_argument("--entry-file-path",  required=True, help="Path for the entry file to the package")
+build_parser.set_defaults(func=build)
+
+app_device_setup_parser = subparsers.add_parser("setup-app-on-device", help="Initial setup for running the application on the device")
+app_device_setup_parser.set_defaults(func=setup_app_on_device)
+
+deploy_packges_device_parser = subparsers.add_parser("deploy-on-device", help="Deploys packages onto the device")
+deploy_packges_device_parser.add_argument("--packages", required=True, nargs="+", type=str, help="List of packages to deploy")
+deploy_packges_device_parser.add_argument("--asset-names", required=True, nargs="+", type=str, help="List of asset names for the packages specified")
+deploy_packges_device_parser.set_defaults(func=deploy_package_on_device)
+
+package_application_parser = subparsers.add_parser("package-application", help="Uploads all the application assets to panorama cloud account along with all the manifests")
+package_application_parser.set_defaults(func=package_application)
+
+export_parser = subparsers.add_parser("export", help="Export the docker image")
+export_parser.set_defaults(func=export)
+
+start_parser = subparsers.add_parser("start", help="Start container based on pre-built docker image")
+start_parser.set_defaults(func=start)
+
+stop_parser = subparsers.add_parser("stop", help="Stop the running docker containers")
+stop_parser.set_defaults(func=stop)
+
+restart_parser = subparsers.add_parser("restart", help="Restart the running docker containers")
+restart_parser.set_defaults(func=restart)
+
+args = parser.parse_args()
+args.func()
