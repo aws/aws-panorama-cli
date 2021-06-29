@@ -1,0 +1,66 @@
+{
+  "nodeGraph" : {
+    "envelopeVersion" : "2021-01-01",
+    "packages" : [
+        {
+            "name" : "619501627742::people-counter-package",
+            "version" : "1.0"
+        },
+        {
+            "name" : "619501627742::rtsp-camera",
+            "version" : "1.0"
+        },
+        {
+            "name" : "619501627742::call-node",
+            "version" : "1.0"
+        }
+    ],
+    "nodes" : [
+        {
+            "name" : "people_counter_node_instance",
+            "interface" : "619501627742::people-counter-package.people_counter_contaier_node",
+            "overridable" : false,
+            "launch" : "onAppStart"
+        },
+        {
+            "name" : "classification-model",
+            "interface" : "619501627742::call-node.squezenet_interface",
+            "overridable" : false,
+            "launch" : "onAppStart"
+        },
+        {
+            "name" : "front_door_camera_node",
+            "interface" : "619501627742::rtsp-camera.rtsp_interface",
+            "overridable" : true,
+            "launch" : "onAppStart"
+        },
+        {
+            "description" : "demo2 model name",
+            "name" : "model_name",
+            "interface" : "string",
+            "value" : "demo2_model",
+            "overridable" : false
+        },
+        {
+            "name" : "detection_threshold",
+            "interface" : "float32",
+            "value" : 60.0,
+            "overridable" : false
+        }
+    ],
+    "edges" : [
+        {
+            "producer" : "front_door_camera_node.video",
+            "consumer" : "people_counter_node_instance.video_in"
+        },
+        {
+            "producer" : "model_name",
+            "consumer" : "people_counter_node_instance.model_name"
+        },
+        {
+            "producer" : "detection_threshold",
+            "consumer" : "people_counter_node_instance.threshold"
+        }
+    ]
+}
+}

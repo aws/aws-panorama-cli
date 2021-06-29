@@ -1,0 +1,51 @@
+{
+    "nodePackage":
+    {
+        "envelopeVersion": "2021-01-01",
+        "assets": 
+        [
+            {
+                "name": "people_counter_container_binary",
+                "implementations": [
+                    {
+                        "type": "container",
+                        "assetUri": "f2c8856c1751db1d58b8a8bdf04967c9e669ff9c32ad6fadff92eb6dc6d1e663.tar.gz",
+                        "descriptorUri": "1c3a6a3ec9542bedcd3b5ec4fd083de9af0a1528f1496e0fb7fa2789c8155cfe.json"
+                    }
+                ]
+            }
+        ],
+
+        "interfaces": 
+        [
+        	{
+        		"name": "people_counter_contaier_node",
+                "category": "business_logic",
+                "asset": "people_counter_container_binary",
+                "inputs":
+                [
+                    {
+                        "name": "video_in",
+                        "type": "media"
+                    },
+                    {
+                        "name": "model_name",
+                        "type": "string"
+                    },
+		            {
+			            "name": "threshold",
+			            "type": "float32"
+		            }
+                ],
+        	    "outputs":
+                [
+                    {
+                        "description": "Video stream output",
+                        "name": "videoOut",
+                        "type": "media"
+                    }
+                ]
+		    }
+        ]
+    }
+}

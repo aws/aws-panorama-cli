@@ -107,6 +107,7 @@ Copy the above json snippet into assets section of package.json at packages/6195
 
 Next step would be to edit all the package.json's and define interfaces for all the packages.
 After that, you can edit the graph.json under `graphs` directory to define nodes from the above defined interfaces and add edges between them.
+Refer to the example_app provided in this repository to better understand the changes that are needed.
 
 
 When the applicaiton is ready, use the following command to upload all the packages to the cloud
