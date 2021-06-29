@@ -108,7 +108,7 @@ Copy the above json snippet into assets section of package.json at packages/6195
 Next step would be to edit all the package.json's and define interfaces for all the packages.
 After that, you can edit the graph.json under `graphs` directory to define nodes from the above defined interfaces and add edges between them.
 Refer to the example_app provided in this repository to better understand the changes that are needed.
-
+example_app provided in this repository doesn't have the downloaded/built assets in it. You can find the entire application with all the assets at https://amazon.awsapps.com/workdocs/index.html#/document/8fc3bf0224e7c383679bd505b7e2d2a70b85ec475dc8b89349eadb694543e75f
 
 When the applicaiton is ready, use the following command to upload all the packages to the cloud
 ```
