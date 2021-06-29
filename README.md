@@ -2,6 +2,11 @@
 
 The purpose of this package is to provide a CLI tool to facilitate Panorama developer creating a local application as well as being able to upload the application to the cloud and deploy to device using the CLI.
 
+## Dependencies
+
+You will need Docker and AWS CLI installed on your machine.
+Docker is required for building a package and AWS CLI is needed for downloading a model from S3 and packaging the application to Panorama Cloud.
+
 ## Setup
 
 ```
@@ -26,54 +31,82 @@ $ panorama-cli <command> -h
 
 **Application development flow example**
 
+This is an example of a sample app which has three node packages. people_counter package has core logic for counting the number of people, call_node has the model which people_counter package uses and rtsp_camera is the camera package.
+
 ```
 $ panorama-cli init-project --name example_project
 Successfully created the project skeleton at <path>
 
 $ cd example_project
 
-$panorama-cli create-package --name people_counter
-Successfully created people_counter package
+$ panorama-cli create-package --name people_counter
 
-$ panorama-cli compile-model --model-s3-input-uri s3://<path>/resnet18_model.tar.gz --model-s3-output-uri s3://<path>/compiled_models/  --framework PYTORCH --input-shape 1 3 224 224 --compile-role-arn arn:aws:iam::12341234:role/Admin
-Successfully created model compilation job with id: 8fc8b572
+$ panorama-cli create-package --name call_node
 
-$ panorama-cli download-model --model-name resnet18
-Compilation job completed. Downloading model artifacts...
-Successfully downloaded compiled artifacts (s3://<path>/compiled_models/8fc8b572/resnet18_model-LINUX_ARM64_NVIDIA.tar.gz) to ./assets/b34a8c8eeb7c21cfb93f8715e6acfb4180add00d13b40e4d6488b8fd5e659be8/resnet18.tar.gz
-Copy the following in the assets section of package.json of the package where the model is being used
+$ panorama-cli create-package --name rtsp_camera -camera
+```
+
+Raw models are compiled using Sagemaker Neo on Panorama Cloud before being deployed onto the device. All models for this reason are paired with a descriptor json which has the required meta deta for compiling the raw model on the cloud.
+Since call_node has the model in this example, edit `packages/accountXYZ-call-node-1.0/descriptor.json` and add the following snippet into it.
+```
 {
-    "name": "resnet18",
-    "implementations": [
-        {
-            "type": "model",
-            "assetUri": "b34a8c8eeb7c21cfb93f8715e6acfb4180add00d13b40e4d6488b8fd5e659be8",
-        }
-    ]
+    "mlModelDescriptor": {
+        "envelopeVersion": "2021-01-01",
+        "framework": "PYTORCH",
+        "inputs": [
+            {
+                "name": "data",
+                "shape": [
+                    1,
+                    3,
+                    224,
+                    224
+                ]
+            }
+        ]
+    }
 }
-
 ```
 
-To use a precompiled Sagemaker Neo mode
+Now we can download the model by passing in the path to the descriptor file which we just updated.
 ```
-$ panorama-cli download-model --model-name callable_squeezenet --model-s3-uri s3://<path>/compiled_models/ssd.tar.gz
-Copy the following in the assets section of package.json of the package where the model is being used
+$ panorama-cli download-raw-model --model-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call-node-1.0/descriptor.json
+download: s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
+Successfully downloaded compiled artifacts (s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz) to ./assets/callable_squeezenet.tar.gz
+Copy the following in the assets section of package.json
 {
     "name": "callable_squeezenet",
     "implementations": [
         {
             "type": "model",
-            "assetUri": "3b39f4956d4d86c0b7de70486a67106e850b82c5e04a104b4828b6c8ac2965fb.sqfs"
+            "assetUri": "fd1aef48acc3350a5c2673adacffab06af54c3f14da6fe4a8be24cac687a386e.tar.gz",
+            "descriptorUri": "df53d7bc3666089c2f93d23f5b4d168d2f36950de42bd48da5fdcafd9dbac41a.json"
         }
     ]
 }
 ```
+Paste the above json snippet into the assets section of call_node package to link the asset which we just downloaded to call_node package.
 
-Add package specific code into src directory of the package and then use the following command to build a package.
-Also add the package entry file path into the descript.json
+people_counter package has the core logic to count the number of people, so let's create a file called `people_counter_main.py` at `packages/accountXYZ-people-counter-package-1.0/src` and add the relevant code to that.
+We can now build the package using the following command to create a container asset.
 ```
-$ sudo panorama-cli build --package-name people_counter --package-path packages/accountXYZ-people_counter-1.0 --entry-file-path packages/accountXYZ-people_counter-1.0/src/<package_entry_file_name>
+$ sudo panorama-cli build --package-name people_counter --package-path packages/619501627742-people-counter-package-1.0 --entry-file-path packages/accountXYZ-people-counter-package-1.0/src/people_counter_main.py
+Add the following json snippet into the assets section of package.json at packages/619501627742-people-counter-package-1.0
+{
+    "name": "people_counter_container_binary",
+    "implementations": [
+        {
+            "type": "container",
+            "assetUri": "e8c30098e894b0f20555257bd4de023504690c63d889680f6ec125581a3dd2e7.tar.gz",
+            "descriptorUri": "1c3a6a3ec9542bedcd3b5ec4fd083de9af0a1528f1496e0fb7fa2789c8155cfe.json"
+        }
+    ]
+}
 ```
+Copy the above json snippet into assets section of package.json at packages/619501627742-people-counter-package-1.0
+
+Next step would be to edit all the package.json's and define interfaces for all the packages.
+After that, you can edit the graph.json under `graphs` directory to define nodes from the above defined interfaces and add edges between them.
 
 
 When the applicaiton is ready, use the following command to upload all the packages to the cloud
@@ -81,9 +114,4 @@ When the applicaiton is ready, use the following command to upload all the packa
 $ panorama-cli package-application
 ```
 
-
-
-
-
-
-
+After packaging the application, you can now use the graph.json from the package to start a deployment from the cloud!
