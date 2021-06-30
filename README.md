@@ -7,6 +7,22 @@ The purpose of this package is to provide a CLI tool to facilitate Panorama deve
 You will need Docker and AWS CLI installed on your machine.
 Docker is required for building a package and AWS CLI is needed for downloading a model from S3 and packaging the application to Panorama Cloud.
 
+After downloading both of these, since panorama service is not public yet, we have to setup the CLI for that as well. Follow the steps below for that.
+
+1. Download the model/normal.json file from artifacts under OmniCloudServiceLambdaModel as OmniCloudServiceLambda.api.json file.
+
+2. Run the following command to update to use IAD gamma endpoint:
+```
+sed -i.bak  's-requestUri":"/-requestUri":"/gamma/-g; s/endpointPrefix":"panorama/endpointPrefix":"avvngkyyje.execute-api/g'  OmniCloudServiceLambda.api.json
+```
+
+3.  Configure cli setup locally:
+```
+aws configure add-model --service-model file://OmniCloudServiceLambda.api.json --service-name panorama
+```
+
+Since our PanoramaSDK image is not public yet, you might also face permission issues when you're trying the build command listed below. Reachout to prannoyp@ for getting access to the image.
+
 ## Setup
 
 ```
