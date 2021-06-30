@@ -15,6 +15,7 @@ import time
 import importlib.resources as pkg_resources
 from pathlib import Path
 import pkgutil
+import re
 
 from PanoramaConfig import Config
 from PanoramaConfig import ConfigType
@@ -590,7 +591,12 @@ def download_compiled_model():
 
 def create_package():
     template_path = os.path.join(CLI_DIR, PACKAGE_SKELETON_PATH)
-    pkg_path = os.path.join(os.getcwd(), "packages/accountXYZ-" + args.name + "-1.0")
+    status, output = execute(['aws sts get-caller-identity --query Account --output text'])
+    if status != 0:
+        print(output)
+        sys.exit('Error getting AWS account ID, please configure your account before proceeding')
+    account_id = re.sub('[^A-Za-z0-9]+', '', output) #Removing all special characters from stdout
+    pkg_path = os.path.join(os.getcwd(), "packages", account_id + "-" + args.name + "-1.0")
     shutil.copytree(template_path, pkg_path)
 
     package_json_path = os.path.join(pkg_path, "package.json")
@@ -608,7 +614,7 @@ def create_package():
     with open(graph_json_path, "r+") as f:
         graph_json = json.load(f)
         graph_json["nodeGraph"]["packages"].append({
-                            "name": "accountXYZ::" + args.name,
+                            "name": account_id + "::" + args.name,
                             "version": "1.0"
                         })
         f.seek(0)
