@@ -633,7 +633,7 @@ def create_package():
         f.truncate()
 
     if args.camera:
-        os.removedirs(os.path.join(pkg_path, "src"))
+        shutil.rmtree(os.path.join(pkg_path, "src"))
         os.remove(os.path.join(pkg_path, "Dockerfile"))
         os.remove(os.path.join(pkg_path, "descriptor.json"))
     elif args.model:
