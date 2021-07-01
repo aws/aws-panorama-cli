@@ -43,7 +43,8 @@ CONFIG_PATH = 'config.json'
 VAR_PATH = 'var.json'
 PROJECT_SKELETON_PATH = 'resources/project_skeleton'
 PACKAGE_SKELETON_PATH = 'resources/package_skeleton'
-DESCRIPTOR_TEMPLATE_PATH = 'resources/descriptor_template.json'
+DESCRIPTOR_CONTAINER_TEMPLATE_PATH = 'resources/descriptor_container_template.json'
+DESCRIPTOR_MODEL_TEMPLATE_PATH = 'resources/descriptor_model_template.json'
 DOWNLOAD_ASSET_TEMPLATE_PATH = 'resources/download_model.json'
 BUILD_ASSET_TEMPLATE_PATH = 'resources/build_package.json'
 FILE_VIDEO_SOURCE_PACKAGE_PATH = 'resources/video_from_file_package'
@@ -348,10 +349,9 @@ def config():
 
 def build():
     package_src_path = os.path.join(args.package_path,'src')
-    package_name = args.package_name
-    entry_file_rel_path = os.path.relpath(args.entry_file_path, package_src_path)
+    asset_name = args.container_asset_name
     
-    commands = ["TMPDIR=$(pwd) sudo docker build -t " + package_name + " " + args.package_path, "sudo docker export --output=" + package_name + ".tar $(sudo docker create " + package_name + ":latest)", "mkdir -p rootfs && tar -xf " + package_name + ".tar -C rootfs", "rm -rf " + package_name + ".tar"]
+    commands = ["TMPDIR=$(pwd) sudo docker build -t " + asset_name + " " + args.package_path, "sudo docker export --output=" + asset_name + ".tar $(sudo docker create " + asset_name + ":latest)", "mkdir -p rootfs && tar -xf " + asset_name + ".tar -C rootfs", "rm -rf " + asset_name + ".tar"]
     for cmd in commands:
         print(cmd)
         return_code, out = execute([cmd], runtime_print_output=True)
@@ -359,24 +359,14 @@ def build():
             print(out)
             sys.exit('Error while creating and exporting a docker image')
 
-    descriptor_src_path = os.path.join(CLI_DIR, DESCRIPTOR_TEMPLATE_PATH)
-    descriptor_dst_path = os.path.join(os.getcwd(), "descriptor.json")
-    shutil.copyfile(descriptor_src_path, descriptor_dst_path)
-    with open(descriptor_dst_path, "r+") as f:
-        descriptor_template = json.load(f)
-        descriptor_template["runtimeDescriptor"]["entry"]["path"] = "python3"
-        descriptor_template["runtimeDescriptor"]["entry"]["name"] = "/Panorama/" + entry_file_rel_path
-        f.seek(0)
-        json.dump(descriptor_template, f, indent=4)
-        f.truncate()
+    descriptor_path = os.path.join(args.package_path, "descriptor.json")
     descriptor_json_hash = ""
-    with open(descriptor_dst_path,"rb") as f:
+    with open(descriptor_path,"rb") as f:
         bytes = f.read()
         descriptor_json_hash = hashlib.sha256(bytes).hexdigest()
     descriptorUri = descriptor_json_hash + ".json"
     descriptor_dst_final_path = os.path.join("./assets", descriptorUri)
-    shutil.copyfile(descriptor_dst_path, descriptor_dst_final_path)
-    os.remove(descriptor_dst_path)
+    shutil.copyfile(descriptor_path, descriptor_dst_final_path)
 
     '''
     #Sqfs Image Generation
@@ -384,10 +374,10 @@ def build():
     for file_name in package_contents:
         if file_name != "Dockerfile":
             shutil.copy(os.path.join(package_src_path, file_name), "./imageDir/rootfs/Panorama")
-    image_name = get_hash(package_name) + ".sqfs"
+    image_name = get_hash(asset_name) + ".sqfs"
     commands= ["mksquashfs ./imageDir " + image_name, "truncate -s +3M " + image_name, "rm -rf imageDir"]
     '''
-    image_name = get_hash(package_name) + ".tar.gz"
+    image_name = get_hash(asset_name) + ".tar.gz"
     commands= ["tar -cvzf " + image_name + " ./rootfs" , "rm -rf rootfs"]
     for cmd in commands:
         print(cmd)
@@ -406,13 +396,22 @@ def build():
     shutil.move(image_src_path, image_dst_path)
 
     assest_blob_path = os.path.join(CLI_DIR, BUILD_ASSET_TEMPLATE_PATH)
+    asset_template = {}
     with open(assest_blob_path) as f:
         asset_template = json.load(f)
-        asset_template["name"] = package_name + "_container_binary"
+        asset_template["name"] = asset_name
         asset_template["implementations"][0]["assetUri"] = image_name
         asset_template["implementations"][0]["descriptorUri"] = descriptorUri
-        print("Add the following json snippet into the assets section of package.json at " + args.package_path)
-        print(json.dumps(asset_template, indent=4))
+    
+    package_json_path = os.path.join(args.package_path, "package.json")
+    with open(package_json_path, "r+") as f:
+        package_json = json.load(f)
+        package_json["nodePackage"]["assets"].append(asset_template)
+        f.seek(0)
+        json.dump(package_json, f, indent=4)
+        f.truncate()
+    print(json.dumps(asset_template, indent=4))
+    print("Container asset for the package has been succesfully built at ", image_dst_path)
 
 def export():
     stop(print_app_log=False)
@@ -485,7 +484,7 @@ def compile_model():
         print('Compilation job creation failure.')
 
 def download_raw_model():
-    file_base_name = args.model_name
+    file_base_name = args.model_asset_name
     asset_dir = "./assets/"
     model_dir = asset_dir + file_base_name + '.tar.gz'
     s3_uri = args.model_s3_uri
@@ -495,7 +494,6 @@ def download_raw_model():
     if return_code != 0:
         print(out)
         sys.exit('Error when downloading compiled artifacts (' + s3_uri + ') to ' + model_dir)
-    print('Successfully downloaded compiled artifacts (' + s3_uri + ') to ' + model_dir)
 
     descriptor_src_path = os.path.join(os.getcwd(), args.descriptor_path)
     descriptor_json_hash = ""
@@ -515,17 +513,30 @@ def download_raw_model():
     shutil.move(model_dir, image_dst_path)
     
     assest_blob_path = os.path.join(CLI_DIR, DOWNLOAD_ASSET_TEMPLATE_PATH)
+    asset_template = {}
     with open(assest_blob_path) as f:
         asset_template = json.load(f)
-        asset_template["name"] = args.model_name
+        asset_template["name"] = args.model_asset_name
         asset_template["implementations"][0]["assetUri"] = model_tar_name
         asset_template["implementations"][0]["descriptorUri"] = descriptorUri
-        print("Copy the following in the assets section of package.json")
-        print(json.dumps(asset_template, indent=4))
+        
 
+    if args.packages_path:
+        for package_path in args.packages_path:
+            package_json_path = os.path.join(package_path, "package.json")
+            with open(package_json_path, "r+") as f:
+                package_json = json.load(f)
+                package_json["nodePackage"]["assets"].append(asset_template)
+                f.seek(0)
+                json.dump(package_json, f, indent=4)
+                f.truncate()
+    else:
+        print("Copy the following in the assets section of package.json")
+    print(json.dumps(asset_template, indent=4))
+    print('Successfully downloaded compiled artifacts (' + s3_uri + ') to ' + image_dst_path)
 
 def download_compiled_model():
-    file_base_name = args.model_name
+    file_base_name = args.model_asset_name
     asset_dir = "./assets/" + file_base_name + "/"
     model_dir = asset_dir + file_base_name + '.tar.gz'
     if not args.model_s3_uri:
@@ -564,7 +575,7 @@ def download_compiled_model():
         sys.exit('Error when downloading compiled artifacts (' + s3_uri + ') to ' + model_dir)
     print('Successfully downloaded compiled artifacts (' + s3_uri + ') to ' + model_dir)
 
-    descriptor_src_path = os.path.join(CLI_DIR, DESCRIPTOR_TEMPLATE_PATH)
+    descriptor_src_path = os.path.join(CLI_DIR, DESCRIPTOR_MODEL_TEMPLATE_PATH)
     descriptor_dst_path = os.path.join(asset_dir, "descriptor.json")
     shutil.copyfile(descriptor_src_path, descriptor_dst_path)
 
@@ -621,8 +632,17 @@ def create_package():
         json.dump(graph_json, f, indent=4)
         f.truncate()
 
-    if(args.camera):
-        execute(["rm -rf " + pkg_path + "/src"])
+    if args.camera:
+        os.removedirs(os.path.join(pkg_path, "src"))
+        os.remove(os.path.join(pkg_path, "Dockerfile"))
+        os.remove(os.path.join(pkg_path, "descriptor.json"))
+    elif args.model:
+        os.removedirs(os.path.join(pkg_path, "src"))
+        os.remove(os.path.join(pkg_path, "Dockerfile"))
+        os.remove(os.path.join(pkg_path, "descriptor.json"))
+        descriptor_src_path = os.path.join(CLI_DIR, DESCRIPTOR_MODEL_TEMPLATE_PATH)
+        descriptor_dst_path = os.path.join(pkg_path, "descriptor.json")
+        shutil.copyfile(descriptor_src_path, descriptor_dst_path)
     print('Successfully created package ' + args.name)
 
 def create_fs():
@@ -766,13 +786,14 @@ compile_model_parser.add_argument("--compile-role-arn", required=True, help="Ama
 compile_model_parser.set_defaults(func=compile_model)
 
 add_model_parser = subparsers.add_parser("download-raw-model", help="Download raw model artifacts")
-add_model_parser.add_argument("--model-name", required=True, help="Name for model being downloaded")
+add_model_parser.add_argument("--model-asset-name", required=True, help="Name for model being downloaded")
 add_model_parser.add_argument("--model-s3-uri", required=True, help="S3 URI of the raw model")
 add_model_parser.add_argument("--descriptor-path", required=True, help="Path for the descriptor json for the model")
+add_model_parser.add_argument("--packages-path", nargs="+", type=str, default=[], help="List of packages where this model will be used. Downloaded model asset will be directly defined in those packages if provided")
 add_model_parser.set_defaults(func=download_raw_model)
 
 download_model_parser = subparsers.add_parser("download-compiled-model", help="Download compiled model artifacts")
-download_model_parser.add_argument("--model-name", required=True, help="Name for model being downloaded")
+download_model_parser.add_argument("--model-asset-name", required=True, help="Name for model being downloaded")
 download_model_parser.add_argument("--model-s3-uri", help="S3 URI of the pre-compiled model")
 download_model_parser.add_argument('-ext4fs', action='store_true')
 download_model_parser.set_defaults(func=download_compiled_model)
@@ -780,6 +801,7 @@ download_model_parser.set_defaults(func=download_compiled_model)
 create_package_parser = subparsers.add_parser("create-package", help="Create a new package")
 create_package_parser.add_argument("--name", required=True, help="Name of the project")
 create_package_parser.add_argument('-camera', action='store_true')
+create_package_parser.add_argument('-model', action='store_true')
 create_package_parser.set_defaults(func=create_package)
 
 file_based_source_parser = subparsers.add_parser("create-file-based-data-source", help="Generate a package for file based source")
@@ -791,9 +813,8 @@ create_fs_parser.add_argument('-ext4fs', action='store_true')
 create_fs_parser.set_defaults(func=create_fs)
 
 build_parser = subparsers.add_parser("build", help="Build the package")
-build_parser.add_argument("--package-name",  required=True, help="Name of the package")
+build_parser.add_argument("--container-asset-name",  required=True, help="Name of the package")
 build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
-build_parser.add_argument("--entry-file-path",  required=True, help="Path for the entry file to the package")
 build_parser.set_defaults(func=build)
 
 app_device_setup_parser = subparsers.add_parser("setup-app-on-device", help="Initial setup for running the application on the device")

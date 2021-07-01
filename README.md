@@ -7,7 +7,7 @@ The purpose of this package is to provide a CLI tool to facilitate Panorama deve
 You will need Docker and AWS CLI installed on your machine.
 Docker is required for building a package and AWS CLI is needed for downloading a model from S3 and packaging the application to Panorama Cloud.
 
-After downloading both of these, since panorama service is not public yet, we have to setup the CLI for that as well. Follow the steps below for that.
+After downloading both of these, since panorama service is not public yet, we have to setup the CLI for that as well. Follow the steps below for that to setup the CLI with Gamma as endpoint.
 
 1. Download the model/normal.json file from artifacts under OmniCloudServiceLambdaModel as OmniCloudServiceLambda.api.json file.
 
@@ -57,7 +57,7 @@ $ cd example_project
 
 $ panorama-cli create-package --name people_counter
 
-$ panorama-cli create-package --name call_node
+$ panorama-cli create-package --name call_node -model
 
 $ panorama-cli create-package --name rtsp_camera -camera
 ```
@@ -86,7 +86,7 @@ Since call_node has the model in this example, edit `packages/accountXYZ-call-no
 
 Now we can download the model by passing in the path to the descriptor file which we just updated.
 ```
-$ panorama-cli download-raw-model --model-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call-node-1.0/descriptor.json
+$ panorama-cli download-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call-node-1.0/descriptor.json
 download: s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
 Successfully downloaded compiled artifacts (s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz) to ./assets/callable_squeezenet.tar.gz
 Copy the following in the assets section of package.json
@@ -101,23 +101,35 @@ Copy the following in the assets section of package.json
     ]
 }
 ```
-Paste the above json snippet into the assets section of call_node package to link the asset which we just downloaded to call_node package.
+Paste the above json snippet into the assets section of call_node package.json to link the asset which we just downloaded to call_node package.
+
+If call-node packages is specified as part of the command, asset snippet is copied into package.json automatically
+```
+$ panorama-cli download-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call_node-1.0/descriptor.json --packages-path packages/accountXYZ-call_node-1.0
+download: s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
+Successfully downloaded compiled artifacts (s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz) to ./assets/c399edb69582ff4c10dfdc4af86da49fccce442b9cda17351be8836ae3bd2417.tar.gz
+```
 
 people_counter package has the core logic to count the number of people, so let's create a file called `people_counter_main.py` at `packages/accountXYZ-people-counter-package-1.0/src` and add the relevant code to that.
 We can now build the package using the following command to create a container asset.
+Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have the following content
 ```
-$ sudo panorama-cli build --package-name people_counter --package-path packages/619501627742-people-counter-package-1.0 --entry-file-path packages/accountXYZ-people-counter-package-1.0/src/people_counter_main.py
-Add the following json snippet into the assets section of package.json at packages/619501627742-people-counter-package-1.0
 {
-    "name": "people_counter_container_binary",
-    "implementations": [
+    "runtimeDescriptor":
+    {
+        "envelopeVersion": "2021-01-01",
+        "entry":
         {
-            "type": "container",
-            "assetUri": "e8c30098e894b0f20555257bd4de023504690c63d889680f6ec125581a3dd2e7.tar.gz",
-            "descriptorUri": "1c3a6a3ec9542bedcd3b5ec4fd083de9af0a1528f1496e0fb7fa2789c8155cfe.json"
+            "path": "python3",
+            "name": "/Panorama/people_counter_main.py"
         }
-    ]
+    }
 }
+```
+descriptor.json basically provides the path for the command that needs to run and the path to the file that needs to be executed once the container starts.
+
+```
+$ sudo panorama-cli build --container-asset-name people_counter --package-path packages/accountXYZ-people-counter-package-1.0
 ```
 Copy the above json snippet into assets section of package.json at packages/619501627742-people-counter-package-1.0
 

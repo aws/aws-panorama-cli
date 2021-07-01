@@ -4,8 +4,8 @@
         "envelopeVersion": "2021-01-01",
         "entry":
         {
-            "path": "",
-            "name": ""
+            "path": "python3",
+            "name": "/Panorama/<entry_file_name_under_src>"
         }
     }
 }
