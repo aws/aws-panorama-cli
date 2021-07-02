@@ -693,11 +693,11 @@ def package_application():
         if status != 0:
             print(output)
             sys.exit('Error getting the list of packages')
-        package_list = json.loads(output)["Packages"]
+        panorama_package_list = json.loads(output)["Packages"]
         package_id = None
-        for package in package_list:
-            if package["PackageName"] == package_name:
-                package_id = package["PackageId"]
+        for panorama_package in panorama_package_list:
+            if panorama_package["PackageName"] == package_name:
+                package_id = panorama_package["PackageId"]
         if not package_id:
             status, output = execute(['aws panorama create-package --package-name ' + package_name])
             if status != 0:
