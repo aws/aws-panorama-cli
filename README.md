@@ -62,6 +62,46 @@ $ panorama-cli create-package --name call_node -model
 $ panorama-cli create-package --name rtsp_camera -camera
 ```
 
+To setup the camera, modify the following snippet of the interfaces section of the package.json for rtsp_camera package and make sure asset points to the right path.
+Update the username, password and streamUrl to the right values for your camera.
+```
+{
+                "description" : "Default desc",
+                "name": "rtsp_interface",
+                "category": "media_source",
+                "asset": "rtsp_camera",
+                "inputs":
+                [
+                    {
+                        "description": "Camera username",
+                        "name": "username",
+                        "type": "string",
+                        "default": "root"
+                    },
+                    {   
+                        "description": "Camera password",
+                        "name": "password",
+                        "type": "string",
+                        "default": "Aws2017!"
+                    },
+                    {
+                        "description": "Camera streamUrl",
+                        "name": "streamUrl",
+                        "type": "string",
+                        "default": "rtsp://10.92.200.68/onvif-media/media.amp?profile=profile_4_h264&sessiontimeout=60&streamtype=unicast"
+                    }       
+                ],
+                "outputs":
+                [
+                    {
+                        "description": "Video stream output",
+                        "name": "video",
+                        "type": "media"
+                    }
+                ]
+}
+```
+
 Raw models are compiled using Sagemaker Neo on Panorama Cloud before being deployed onto the device. All models for this reason are paired with a descriptor json which has the required meta deta for compiling the raw model on the cloud.
 Since call_node has the model in this example, edit `packages/accountXYZ-call-node-1.0/descriptor.json` and add the following snippet into it.
 ```
