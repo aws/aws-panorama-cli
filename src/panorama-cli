@@ -689,7 +689,8 @@ def package_application():
     assets_dir = os.path.join(os.getcwd(), 'assets')
     packages_dir = os.path.join(os.getcwd(), 'packages')
     if args.packages_path:
-        package_list = map(os.path.basename, args.packages_path)
+        package_dirs = list(map(os.path.normpath, args.packages_path))
+        package_list = list(map(os.path.basename, package_dirs))
     else:
         package_list = [a for a in os.listdir(packages_dir) if os.path.isdir(os.path.join(packages_dir, a))]
     for package in package_list:

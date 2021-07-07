@@ -171,7 +171,6 @@ descriptor.json basically provides the path for the command that needs to run an
 ```
 $ sudo panorama-cli build --container-asset-name people_counter --package-path packages/accountXYZ-people-counter-package-1.0
 ```
-Copy the above json snippet into assets section of package.json at packages/619501627742-people-counter-package-1.0
 
 Next step would be to edit all the package.json's and define interfaces for all the packages.
 After that, you can edit the graph.json under `graphs` directory to define nodes from the above defined interfaces and add edges between them.
