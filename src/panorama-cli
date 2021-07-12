@@ -289,7 +289,7 @@ def create_tar_asset(tar_path, tar_name):
 def build():
     package_src_path = os.path.join(args.package_path,'src')
     asset_name = args.container_asset_name
-    asset_path = os.join(os.getcwd(), asset_name + ".tar")
+    asset_path = os.path.join(os.getcwd(), asset_name + ".tar")
     if os.path.exists(asset_path):
         os.remove(asset_path)
     
@@ -773,9 +773,6 @@ create_package_parser.add_argument('-camera', action='store_true')
 create_package_parser.add_argument('-model', action='store_true')
 create_package_parser.set_defaults(func=create_package)
 
-file_based_source_parser = subparsers.add_parser("create-file-based-data-source", help="Generate a package for file based source")
-file_based_source_parser.set_defaults(func=create_file_based_source)
-
 create_fs_parser = subparsers.add_parser("create-fs", help="Creates fs for a given tar file")
 create_fs_parser.add_argument("--file-path", required=True, help="Path for the tar file")
 create_fs_parser.add_argument('-ext4fs', action='store_true')
@@ -797,18 +794,6 @@ deploy_packges_device_parser.set_defaults(func=deploy_package_on_device)
 package_application_parser = subparsers.add_parser("package-application", help="Uploads all the application assets to panorama cloud account along with all the manifests")
 package_application_parser.add_argument("--packages-path", nargs="+", type=str, default=[], help="Uploads only these packages if provided")
 package_application_parser.set_defaults(func=package_application)
-
-export_parser = subparsers.add_parser("export", help="Export the docker image")
-export_parser.set_defaults(func=export)
-
-start_parser = subparsers.add_parser("start", help="Start container based on pre-built docker image")
-start_parser.set_defaults(func=start)
-
-stop_parser = subparsers.add_parser("stop", help="Stop the running docker containers")
-stop_parser.set_defaults(func=stop)
-
-restart_parser = subparsers.add_parser("restart", help="Restart the running docker containers")
-restart_parser.set_defaults(func=restart)
 
 args = parser.parse_args()
 args.func()
