@@ -1,4 +1,4 @@
-# OmniDevPythonCLI
+# PanoramaDevPythonCLI
 
 The purpose of this package is to provide a CLI tool to facilitate Panorama developer creating a local application as well as being able to upload the application to the cloud and deploy to device using the CLI.
 

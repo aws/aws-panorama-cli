@@ -11,7 +11,7 @@
                 [
                     {
                         "type": "system",
-                        "assetUri": "source/video/camera/rtsp"
+                        "assetUri": "source/video/camera/rtsp/source_rtsp"
                     }
                 ]
             }
