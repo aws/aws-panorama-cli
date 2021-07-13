@@ -179,7 +179,7 @@ example_app provided in this repository doesn't have the downloaded/built assets
 
 When the applicaiton is ready, use the following command to upload all the packages to the cloud
 ```
-$ panorama-cli package-application
+$ sudo panorama-cli package-application
 ```
 
 After packaging the application, you can now use the graph.json from the package to start a deployment from the cloud!
