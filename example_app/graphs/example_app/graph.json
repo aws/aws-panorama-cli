@@ -50,7 +50,7 @@
     ],
     "edges" : [
         {
-            "producer" : "front_door_camera_node.video",
+            "producer" : "front_door_camera_node.videoOut",
             "consumer" : "people_counter_node_instance.video_in"
         },
         {

@@ -11,10 +11,15 @@ After downloading both of these, since panorama service is not public yet, we ha
 
 1. Download the model/normal.json file from artifacts under OmniCloudServiceLambdaModel as OmniCloudServiceLambda.api.json file.
 
-2. Run the following command to update to use IAD gamma endpoint:
+2. Run the following command use IAD gamma endpoint:
 ```
 sed -i.bak  's-requestUri":"/-requestUri":"/gamma/-g; s/endpointPrefix":"panorama/endpointPrefix":"avvngkyyje.execute-api/g'  OmniCloudServiceLambda.api.json
 ```
+or this one if for PDX Gamma instead:
+```
+sed -i.bak 's-requestUri":"/-requestUri":"/gamma/-g; s/endpointPrefix":"panorama/endpointPrefix":"6m0zzkt7pf.execute-api/g' OmniCloudServiceLambda.api.json
+```
+
 
 3.  Configure cli setup locally:
 ```
@@ -45,7 +50,18 @@ $ panorama-cli -h
 $ panorama-cli <command> -h
 ```
 
-**Application development flow example**
+**Deploying a sample application with assets downloaded**
+
+Link to Samples Repo - <WIP>
+Link to example application - https://amazon.awsapps.com/workdocs/index.html#/document/8fc3bf0224e7c383679bd505b7e2d2a70b85ec475dc8b89349eadb694543e75f
+
+```
+$ cd <application_directory>
+$ panorama-cli import-application
+$ panorama-cli package-application
+```
+
+**Application creation flow example**
 
 This is an example of a sample app which has three node packages. people_counter package has core logic for counting the number of people, call_node has the model which people_counter package uses and rtsp_camera is the camera package.
 
@@ -151,7 +167,6 @@ Successfully downloaded compiled artifacts (s3://dx-cli-testing/raw_models/squee
 ```
 
 people_counter package has the core logic to count the number of people, so let's create a file called `people_counter_main.py` at `packages/accountXYZ-people-counter-package-1.0/src` and add the relevant code to that.
-We can now build the package using the following command to create a container asset.
 Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have the following content
 ```
 {
@@ -168,6 +183,9 @@ Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have th
 ```
 descriptor.json basically provides the path for the command that needs to run and the path to the file that needs to be executed once the container starts.
 
+(Temporary) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 500245141608.dkr.ecr.us-west-2.amazonaws.com`
+
+We can now build the package using the following command to create a container asset.
 ```
 $ sudo panorama-cli build --container-asset-name people_counter --package-path packages/accountXYZ-people-counter-package-1.0
 ```
