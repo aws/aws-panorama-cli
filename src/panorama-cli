@@ -679,10 +679,32 @@ def package_application():
                 print(output)
                 sys.exit('Error creating package ' + package + ' on Panorama')
             package_info = json.loads(output)
+        package_id = package_info["PackageId"]
         storage_location = package_info["StorageLocation"]
         package_json_path = os.path.join(package_path, "package.json")
         with open(package_json_path, "r+") as f:
             package_json = json.load(f)
+        package_json_hash = ""
+        package_version = "1.0" #Default package version, updated below if found
+        with open(package_json_path,"rb") as f:
+            bytes = f.read()
+            package_json_hash = hashlib.sha256(bytes).hexdigest()
+            if "version" in package_json["nodePackage"].keys():
+                package_version = package_json["nodePackage"]["version"]  
+        
+        #Ignore upload if the same patch version of a package is already registered
+        status, output = execute(['aws panorama describe-package-version --package-id ' + package_id + ' --package-version ' + package_version])
+        if status != 0:
+            print("Package Version " + package_version + " is not yet registered, preparing upload")
+        else:
+            package_version_info = json.loads(output)
+            patch_version = package_version_info["PatchVersion"]
+            if patch_version == package_json_hash:
+                print("Patch Version " + patch_version + " already registered, ignoring upload")
+                continue
+            else:
+                print("Patch version for the package " + patch_version)
+
         for asset in package_json["nodePackage"]["assets"]:
             for implementation in asset["implementations"]:
                 if implementation["type"] == "system": #Ignore uploading system assets
@@ -700,18 +722,10 @@ def package_application():
                     if status != 0:
                         print(output)
                         sys.exit('Error uploading package descriptor ' + descriptor_uri + ' to S3')
-        package_json_hash = ""
-        with open(package_json_path,"rb") as f:
-            bytes = f.read()
-            package_json_hash = hashlib.sha256(bytes).hexdigest()
-            if "version" in package_json["nodePackage"].keys():
-                package_version = package_json["nodePackage"]["version"]
-            else:  
-                package_version = "1.0" #Default package version
-            status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + package_json_path + " --acl bucket-owner-full-control"], runtime_print_output=True)
-            if status != 0:
-                print(output)
-                sys.exit('Error uploading package json to S3')
+        status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + package_json_path + " --acl bucket-owner-full-control"], runtime_print_output=True)
+        if status != 0:
+            print(output)
+            sys.exit('Error uploading package json to S3')
         status, output = execute(["aws panorama register-package-version --package-id " + package_info["PackageId"] + " --package-version " + package_version + " --patch-version " + package_json_hash + " --mark-latest"], runtime_print_output=True)
         if status != 0:
             print(output)
