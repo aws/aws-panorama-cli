@@ -15,7 +15,7 @@ After downloading both of these, since panorama service is not public yet, we ha
 ```
 sed -i.bak  's-requestUri":"/-requestUri":"/gamma/-g; s/endpointPrefix":"panorama/endpointPrefix":"avvngkyyje.execute-api/g'  OmniCloudServiceLambda.api.json
 ```
-or this one if for PDX Gamma instead:
+or this one for PDX Gamma instead:
 ```
 sed -i.bak 's-requestUri":"/-requestUri":"/gamma/-g; s/endpointPrefix":"panorama/endpointPrefix":"6m0zzkt7pf.execute-api/g' OmniCloudServiceLambda.api.json
 ```
@@ -52,7 +52,8 @@ $ panorama-cli <command> -h
 
 **Deploying a sample application with assets downloaded**
 
-Link to Samples Repo - <WIP>
+Link to Samples Repo - to be added
+
 Link to example application - https://amazon.awsapps.com/workdocs/index.html#/document/8fc3bf0224e7c383679bd505b7e2d2a70b85ec475dc8b89349eadb694543e75f
 
 ```
@@ -183,7 +184,7 @@ Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have th
 ```
 descriptor.json basically provides the path for the command that needs to run and the path to the file that needs to be executed once the container starts.
 
-(Temporary) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 500245141608.dkr.ecr.us-west-2.amazonaws.com`
+(Temporary) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and are still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 500245141608.dkr.ecr.us-west-2.amazonaws.com`
 
 We can now build the package using the following command to create a container asset.
 ```
