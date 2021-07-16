@@ -844,4 +844,7 @@ deploy_packges_device_parser.add_argument("--asset-names", required=True, nargs=
 deploy_packges_device_parser.set_defaults(func=deploy_package_on_device)
 
 args = parser.parse_args()
-args.func()
+try:
+    args.func()
+except:
+    parser.print_help()
