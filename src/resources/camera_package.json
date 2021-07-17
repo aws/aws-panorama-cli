@@ -48,7 +48,7 @@
                 [
                     {
                         "description": "Video stream output",
-                        "name": "video",
+                        "name": "videoOut",
                         "type": "media"
                     }
                 ]

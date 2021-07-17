@@ -32,7 +32,7 @@ Since our PanoramaSDK image is not public yet, you might also face permission is
 
 ```
 $ git clone https://github.com/aws/aws-panorama-cli
-$ sudo ln -s <path_to_cloned_repo>/src/panorama-cli /usr/local/bin/panorama-cli
+$ sudo ln -s <absolute_path_to_cloned_repo>/src/panorama-cli /usr/local/bin/panorama-cli
 ```
 
 ## Commands

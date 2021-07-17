@@ -711,17 +711,25 @@ def package_application():
                     continue
                 asset_uri = implementation["assetUri"]
                 asset_path = os.path.join(assets_dir, asset_uri)
-                status, output = execute(["aws s3 cp " + asset_path + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + asset_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
+                status, output = execute(["aws s3api head-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["BinaryPrefixLocation"] + "/" + asset_uri])
                 if status != 0:
-                    print(output)
-                    sys.exit('Error uploading package asset ' + asset_uri + ' to S3')
+                    status, output = execute(["aws s3 cp " + asset_path + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + asset_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
+                    if status != 0:
+                        print(output)
+                        sys.exit('Error uploading package asset ' + asset_uri + ' to S3')
+                else:
+                    print("Asset " + asset_uri + " already exists, ignoring upload")
                 if "descriptorUri"  in implementation:
                     descriptor_uri = implementation["descriptorUri"]
                     descriptor_path = os.path.join(assets_dir, descriptor_uri)
-                    status, output = execute(["aws s3 cp " + descriptor_path + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + descriptor_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
+                    status, output = execute(["aws s3api head-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["BinaryPrefixLocation"] + "/" + descriptor_uri])
                     if status != 0:
-                        print(output)
-                        sys.exit('Error uploading package descriptor ' + descriptor_uri + ' to S3')
+                        status, output = execute(["aws s3 cp " + descriptor_path + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + descriptor_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
+                        if status != 0:
+                            print(output)
+                            sys.exit('Error uploading package descriptor ' + descriptor_uri + ' to S3')
+                    else:
+                        print("Descriptor " + descriptor_uri + " already exists, ignoring upload")
         status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + package_json_path + " --acl bucket-owner-full-control"], runtime_print_output=True)
         if status != 0:
             print(output)
