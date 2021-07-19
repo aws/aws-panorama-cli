@@ -851,8 +851,9 @@ deploy_packges_device_parser.add_argument("--packages", required=True, nargs="+"
 deploy_packges_device_parser.add_argument("--asset-names", required=True, nargs="+", type=str, help="List of asset names for the packages specified")
 deploy_packges_device_parser.set_defaults(func=deploy_package_on_device)
 
+if len(sys.argv) == 1:
+    print(parser.print_help())
+    sys.exit(0)
+
 args = parser.parse_args()
-try:
-    args.func()
-except:
-    parser.print_help()
+args.func()
