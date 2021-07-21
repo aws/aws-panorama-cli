@@ -9,7 +9,7 @@ Docker is required for building a package and AWS CLI is needed for downloading 
 
 After downloading both of these, since panorama service is not public yet, we have to setup the CLI for that as well. Follow the steps below for that to setup the CLI with Gamma as endpoint.
 
-1. Download the model/normal.json file from artifacts under OmniCloudServiceLambdaModel as OmniCloudServiceLambda.api.json file.
+1. Download the [model/normal.json](https://amazon.awsapps.com/workdocs/index.html#/document/820db0cf75d55a1e604697d194ca929001dd7fcd27040abaf80836cd016898b1) file from artifacts under OmniCloudServiceLambdaModel as OmniCloudServiceLambda.api.json file.
 
 2. Run the following command use IAD gamma endpoint:
 ```
@@ -54,7 +54,7 @@ $ panorama-cli <command> -h
 
 Link to Samples Repo - to be added
 
-Link to example application - https://amazon.awsapps.com/workdocs/index.html#/document/8fc3bf0224e7c383679bd505b7e2d2a70b85ec475dc8b89349eadb694543e75f
+Link to example application - https://amazon.awsapps.com/workdocs/index.html#/document/2a82b1fb07a92a33c3eb6654e3e747a22440d051d4aa4d3b652859e04290f204
 
 ```
 $ cd <application_directory>
@@ -194,7 +194,7 @@ $ sudo panorama-cli build --container-asset-name people_counter --package-path p
 Next step would be to edit all the package.json's and define interfaces for all the packages.
 After that, you can edit the graph.json under `graphs` directory to define nodes from the above defined interfaces and add edges between them.
 Refer to the example_app provided in this repository to better understand the changes that are needed.
-example_app provided in this repository doesn't have the downloaded/built assets in it. You can find the entire application with all the assets at https://amazon.awsapps.com/workdocs/index.html#/document/8fc3bf0224e7c383679bd505b7e2d2a70b85ec475dc8b89349eadb694543e75f
+example_app provided in this repository doesn't have the downloaded/built assets in it. You can find the entire application with all the assets at https://amazon.awsapps.com/workdocs/index.html#/document/2a82b1fb07a92a33c3eb6654e3e747a22440d051d4aa4d3b652859e04290f204
 
 When the applicaiton is ready, use the following command to upload all the packages to the cloud
 ```
