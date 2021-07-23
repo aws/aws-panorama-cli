@@ -120,7 +120,9 @@ Update the username, password and streamUrl to the right values for your camera.
 ```
 
 Raw models are compiled using Sagemaker Neo on Panorama Cloud before being deployed onto the device. All models for this reason are paired with a descriptor json which has the required meta deta for compiling the raw model on the cloud.
-Since call_node has the model in this example, edit `packages/accountXYZ-call-node-1.0/descriptor.json` and add the following snippet into it.
+If you want to use the same model as this example, you can use [this](https://amazon.awsapps.com/workdocs/index.html#/document/01f9aef8bbe885fa4b29fc6fa2bf23ae6f0c93973e201ef6f4da9d8b26378736) squeezenet model and upload it to your s3.
+
+Since call_node has the model in this example, edit `packages/accountXYZ-call-node-1.0/descriptor.json` and add the following snippet into it. These values are specific to the squeezenet model that is being used in this example.
 ```
 {
     "mlModelDescriptor": {
@@ -143,9 +145,9 @@ Since call_node has the model in this example, edit `packages/accountXYZ-call-no
 
 Now we can download the model by passing in the path to the descriptor file which we just updated.
 ```
-$ panorama-cli download-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call-node-1.0/descriptor.json
-download: s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
-Successfully downloaded compiled artifacts (s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz) to ./assets/callable_squeezenet.tar.gz
+$ panorama-cli download-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://<s3_bucket_path>/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call-node-1.0/descriptor.json
+download: s3://<s3_bucket_path>/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
+Successfully downloaded compiled artifacts (s3://<s3_bucket_path>squeezenet1_0.tar.gz) to ./assets/callable_squeezenet.tar.gz
 Copy the following in the assets section of package.json
 {
     "name": "callable_squeezenet",

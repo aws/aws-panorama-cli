@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#!/usr/bin/python3
 
 from posixpath import join
 import sys
@@ -295,6 +296,17 @@ def get_aws_account_id():
     account_id = re.sub('[^A-Za-z0-9]+', '', output) #Removing all special characters from stdout
     return account_id
 
+def verify_cwd_is_project_root(func):
+    def cwd_check_wrapper():
+        application_root_dirs = ["assets", "graphs", "packages"]
+        cwd_dirs = os.listdir(os.getcwd())
+        for dir in application_root_dirs:
+            if dir not in cwd_dirs:
+                sys.exit("panorama-cli can only be used from application root directory, cd to application root and try again")
+        func()
+    return cwd_check_wrapper
+
+@verify_cwd_is_project_root
 def build():
     package_src_path = os.path.join(args.package_path,'src')
     asset_name = args.container_asset_name
@@ -435,6 +447,7 @@ def compile_model():
     else:
         print('Compilation job creation failure.')
 
+@verify_cwd_is_project_root
 def download_raw_model():
     file_base_name = args.model_asset_name
     asset_dir = "./assets/"
@@ -486,6 +499,7 @@ def download_raw_model():
     print(json.dumps(asset_template, indent=4))
     print('Successfully downloaded compiled artifacts (' + s3_uri + ') to ' + image_dst_path)
 
+@verify_cwd_is_project_root
 def download_compiled_model():
     file_base_name = args.model_asset_name
     asset_dir = "./assets/" + file_base_name + "/"
@@ -551,6 +565,7 @@ def download_compiled_model():
         print("Copy the following in the assets section of package.json")
         print(json.dumps(asset_template, indent=4))
 
+@verify_cwd_is_project_root
 def create_package():
     template_path = os.path.join(CLI_DIR, PACKAGE_SKELETON_PATH)
     account_id = get_aws_account_id()
@@ -631,6 +646,7 @@ def create_file_based_source():
     print('Successfully created the file based video source package at ' + dst_path)
     print('Update assetUri in package.json to point to the right video')
 
+@verify_cwd_is_project_root
 def package_application():
     graphs_path = os.path.join(os.getcwd(), "graphs")
     graph_dir = [a for a in os.listdir(graphs_path) if os.path.isdir(os.path.join(graphs_path, a))][0]
@@ -706,7 +722,7 @@ def package_application():
                 print("Patch Version " + patch_version + " already registered, ignoring upload")
                 continue
             else:
-                print("Patch version for the package " + patch_version)
+                print("Patch version for the package " + package_json_hash)
 
         for asset in package_json["nodePackage"]["assets"]:
             for implementation in asset["implementations"]:
@@ -733,16 +749,19 @@ def package_application():
                             sys.exit('Error uploading package descriptor ' + descriptor_uri + ' to S3')
                     else:
                         print("Descriptor " + descriptor_uri + " already exists, ignoring upload")
-        status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + package_json_path + " --acl bucket-owner-full-control"], runtime_print_output=True)
+        status, output = execute(["aws s3api head-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json"])
         if status != 0:
-            print(output)
-            sys.exit('Error uploading package json to S3')
+            status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + package_json_path + " --acl bucket-owner-full-control"], runtime_print_output=True)
+            if status != 0:
+                print(output)
+                sys.exit('Error uploading package json to S3')
         status, output = execute(["aws panorama register-package-version --package-id " + package_info["PackageId"] + " --package-version " + package_version + " --patch-version " + package_json_hash + " --mark-latest"], runtime_print_output=True)
         if status != 0:
             print(output)
             sys.exit('Error registering package json with Panorama')
         print("Registered " + package_name + " with patch version " + package_json_hash)
 
+@verify_cwd_is_project_root
 def import_application():
     account_id = get_aws_account_id()
     packages_dir = os.path.join(os.getcwd(), 'packages')
