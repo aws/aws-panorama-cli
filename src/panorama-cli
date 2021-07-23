@@ -662,7 +662,7 @@ def package_application():
         package_list = [a for a in os.listdir(packages_dir) if os.path.isdir(os.path.join(packages_dir, a))]
     for package in package_list:
         package_path = os.path.join(packages_dir, package)
-        if len(package.split('-')) != 3:
+        if len(package.split('-')) < 3:
             print(package_path + " is not a package, ignoring")
             continue
         package_name = '-'.join(package.split('-')[1:-1]) #TODO Too hacky right now, improve the logic. Extracts package_name, for example, people-counter-package from 619501627742-people-counter-package-1.0
