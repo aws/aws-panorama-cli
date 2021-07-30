@@ -56,6 +56,8 @@ Link to Samples Repo - to be added
 
 Link to example application - https://amazon.awsapps.com/workdocs/index.html#/document/2a82b1fb07a92a33c3eb6654e3e747a22440d051d4aa4d3b652859e04290f204
 
+Link to an application with HDMI Output - https://drive.corp.amazon.com/personal/ahahajar/GM2%20Template%20Model
+
 ```
 $ cd <application_directory>
 $ panorama-cli import-application
@@ -143,9 +145,10 @@ Since call_node has the model in this example, edit `packages/accountXYZ-call-no
 }
 ```
 
-Now we can download the model by passing in the path to the descriptor file which we just updated.
+Now we can add the model by passing in the path to the descriptor file which we just updated.
+If you want to download the model from S3 and then add it pass `--model-s3-uri` as shown below. Otherwise just use `--model-local-path` to pass the local model path instead.
 ```
-$ panorama-cli download-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://<s3_bucket_path>/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call-node-1.0/descriptor.json
+$ panorama-cli add-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://<s3_bucket_path>/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call-node-1.0/descriptor.json
 download: s3://<s3_bucket_path>/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
 Successfully downloaded compiled artifacts (s3://<s3_bucket_path>squeezenet1_0.tar.gz) to ./assets/callable_squeezenet.tar.gz
 Copy the following in the assets section of package.json
@@ -164,7 +167,7 @@ Paste the above json snippet into the assets section of call_node package.json t
 
 If call-node packages is specified as part of the command, asset snippet is copied into package.json automatically
 ```
-$ panorama-cli download-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call_node-1.0/descriptor.json --packages-path packages/accountXYZ-call_node-1.0
+$ panorama-cli add-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call_node-1.0/descriptor.json --packages-path packages/accountXYZ-call_node-1.0
 download: s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
 Successfully downloaded compiled artifacts (s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz) to ./assets/c399edb69582ff4c10dfdc4af86da49fccce442b9cda17351be8836ae3bd2417.tar.gz
 ```
@@ -187,10 +190,11 @@ Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have th
 descriptor.json basically provides the path for the command that needs to run and the path to the file that needs to be executed once the container starts.
 
 (Temporary) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and are still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 500245141608.dkr.ecr.us-west-2.amazonaws.com`
+(Temporary until 8/2) If you're using the beta build for 4.1.11, modify the Dockerfile in the package directory and change `demo` in the first line to `experiment`
 
 We can now build the package using the following command to create a container asset.
 ```
-$ sudo panorama-cli build --container-asset-name people_counter --package-path packages/accountXYZ-people-counter-package-1.0
+$ sudo panorama-cli build --container-asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
 ```
 
 Next step would be to edit all the package.json's and define interfaces for all the packages.

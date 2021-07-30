@@ -287,6 +287,12 @@ def create_tar_asset(tar_path, tar_name):
             sys.exit('Error while creating a tar asset')
     print("Created asset  " + tar_name)
 
+def get_file_sha_hash(file_path):
+    file_hash = ""
+    with open(file_path,"rb") as f:
+        bytes = f.read()
+        file_hash = hashlib.sha256(bytes).hexdigest()
+    return file_hash
 
 def get_aws_account_id():
     status, output = execute(['aws sts get-caller-identity --query Account --output text'])
@@ -449,33 +455,37 @@ def compile_model():
 
 @verify_cwd_is_project_root
 def download_raw_model():
-    file_base_name = args.model_asset_name
-    asset_dir = "./assets/"
-    model_dir = asset_dir + file_base_name + '.tar.gz'
-    s3_uri = args.model_s3_uri
-    cmd = 'aws s3 cp ' + s3_uri + ' ' + model_dir
+    print("download_raw_model command is deprecated, use add_raw_model instead")
 
-    return_code, out = execute(cmd, runtime_print_output=True)
-    if return_code != 0:
-        print(out)
-        sys.exit('Error when downloading compiled artifacts (' + s3_uri + ') to ' + model_dir)
+@verify_cwd_is_project_root
+def add_raw_model():
+    file_base_name = args.model_asset_name
+    asset_dir = os.path.join(os.getcwd(), "assets")
+    dst_model_path = os.path.join(asset_dir, file_base_name + '.tar.gz')
+
+    if args.model_s3_uri:
+        s3_uri = args.model_s3_uri
+        cmd = 'aws s3 cp ' + s3_uri + ' ' + dst_model_path
+
+        return_code, out = execute(cmd, runtime_print_output=True)
+        if return_code != 0:
+            print(out)
+            sys.exit('Error when downloading compiled artifacts (' + s3_uri + ') to ' + asset_dir)
+    elif args.model_local_path:
+        if os.path.isabs(args.model_local_path):
+            src_model_path = args.model_local_path
+        else:
+            src_model_path = os.path.join(os.getcwd(), args.model_local_path)
+        shutil.copy(src_model_path, dst_model_path)
 
     descriptor_src_path = os.path.join(os.getcwd(), args.descriptor_path)
-    descriptor_json_hash = ""
-    with open(descriptor_src_path,"rb") as f:
-        bytes = f.read()
-        descriptor_json_hash = hashlib.sha256(bytes).hexdigest()
-    descriptorUri = descriptor_json_hash + ".json"
+    descriptorUri = get_file_sha_hash(descriptor_src_path) + ".json"
     descriptor_dst_path = os.path.join(asset_dir, descriptorUri)
     shutil.copyfile(descriptor_src_path, descriptor_dst_path)
     
-    model_hash = ""
-    with open(model_dir,"rb") as f:
-        bytes = f.read()
-        model_hash = hashlib.sha256(bytes).hexdigest()
-    model_tar_name = model_hash + ".tar.gz"
-    image_dst_path = os.path.join(os.getcwd(), "assets", model_tar_name)
-    shutil.move(model_dir, image_dst_path)
+    model_tar_name = get_file_sha_hash(dst_model_path) + ".tar.gz"
+    final_model_dst_path = os.path.join(os.getcwd(), "assets", model_tar_name)
+    shutil.move(dst_model_path, final_model_dst_path)
     
     assest_blob_path = os.path.join(CLI_DIR, DOWNLOAD_ASSET_TEMPLATE_PATH)
     asset_template = {}
@@ -497,7 +507,7 @@ def download_raw_model():
     else:
         print("Copy the following in the assets section of package.json")
     print(json.dumps(asset_template, indent=4))
-    print('Successfully downloaded compiled artifacts (' + s3_uri + ') to ' + image_dst_path)
+    print('Successfully downloaded the model to ' + final_model_dst_path)
 
 @verify_cwd_is_project_root
 def download_compiled_model():
@@ -829,12 +839,22 @@ compile_model_parser.add_argument("--input-shape", required=True, nargs="+", typ
 compile_model_parser.add_argument("--compile-role-arn", required=True, help="Amazon Resource Name (ARN) of an IAM role that enables Amazon SageMaker to perform tasks on your behalf")
 compile_model_parser.set_defaults(func=compile_model)
 
-add_model_parser = subparsers.add_parser("download-raw-model", help="Download raw model artifacts")
+#Deprecated, need to remove
+download_raw_model_parser = subparsers.add_parser("download-raw-model", help="Download raw model artifacts")
+download_raw_model_parser.add_argument("--model-asset-name", help="Name for model being downloaded")
+download_raw_model_parser.add_argument("--model-s3-uri", help="S3 URI of the raw model")
+download_raw_model_parser.add_argument("--descriptor-path", help="Path for the descriptor json for the model")
+download_raw_model_parser.add_argument("--packages-path", nargs="+", type=str, default=[], help="List of packages where this model will be used. Downloaded model asset will be directly defined in those packages if provided")
+download_raw_model_parser.set_defaults(func=download_raw_model)
+
+add_model_parser = subparsers.add_parser("add-raw-model", help="Add raw model artifacts")
 add_model_parser.add_argument("--model-asset-name", required=True, help="Name for model being downloaded")
-add_model_parser.add_argument("--model-s3-uri", required=True, help="S3 URI of the raw model")
+add_model_group = add_model_parser.add_mutually_exclusive_group(required=True)
+add_model_group.add_argument("--model-s3-uri", help="S3 URI of the raw model")
+add_model_group.add_argument("--model-local-path", help="S3 URI of the raw model")
 add_model_parser.add_argument("--descriptor-path", required=True, help="Path for the descriptor json for the model")
 add_model_parser.add_argument("--packages-path", nargs="+", type=str, default=[], help="List of packages where this model will be used. Downloaded model asset will be directly defined in those packages if provided")
-add_model_parser.set_defaults(func=download_raw_model)
+add_model_parser.set_defaults(func=add_raw_model)
 
 download_model_parser = subparsers.add_parser("download-compiled-model", help="Download compiled model artifacts")
 download_model_parser.add_argument("--model-asset-name", required=True, help="Name for model being downloaded")
