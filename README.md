@@ -12,17 +12,17 @@ After downloading both of these, since panorama service is not public yet, we ha
 1. Download the [model/normal.json](https://amazon.awsapps.com/workdocs/index.html#/document/820db0cf75d55a1e604697d194ca929001dd7fcd27040abaf80836cd016898b1) file from artifacts under OmniCloudServiceLambdaModel as OmniCloudServiceLambda.api.json file.
 
 2. Run the following command use IAD gamma endpoint:
-```
+```Shell
 sed -i.bak  's-requestUri":"/-requestUri":"/gamma/-g; s/endpointPrefix":"panorama/endpointPrefix":"avvngkyyje.execute-api/g'  OmniCloudServiceLambda.api.json
 ```
 or this one for PDX Gamma instead:
-```
+```Shell
 sed -i.bak 's-requestUri":"/-requestUri":"/gamma/-g; s/endpointPrefix":"panorama/endpointPrefix":"6m0zzkt7pf.execute-api/g' OmniCloudServiceLambda.api.json
 ```
 
 
 3.  Configure cli setup locally:
-```
+```Shell
 aws configure add-model --service-model file://OmniCloudServiceLambda.api.json --service-name panorama
 ```
 
@@ -30,7 +30,7 @@ Since our PanoramaSDK image is not public yet, you might also face permission is
 
 ## Setup
 
-```
+```Shell
 $ git clone https://github.com/aws/aws-panorama-cli
 $ sudo ln -s <absolute_path_to_cloned_repo>/src/panorama-cli /usr/local/bin/panorama-cli
 ```
@@ -39,13 +39,13 @@ $ sudo ln -s <absolute_path_to_cloned_repo>/src/panorama-cli /usr/local/bin/pano
 
 Basic structure of the commands is as follows
 
-```
+```Shell
 $ panorama-cli <command> [options and parameters]
 ```
 
 To view help documentation, use one of the following
 
-```
+```Shell
 $ panorama-cli -h
 $ panorama-cli <command> -h
 ```
@@ -58,7 +58,7 @@ Link to example application - https://amazon.awsapps.com/workdocs/index.html#/do
 
 Link to an application with HDMI Output - https://drive.corp.amazon.com/personal/ahahajar/GM2%20Template%20Model
 
-```
+```Shell
 $ cd <application_directory>
 $ panorama-cli import-application
 $ panorama-cli package-application
@@ -68,7 +68,7 @@ $ panorama-cli package-application
 
 This is an example of a sample app which has three node packages. people_counter package has core logic for counting the number of people, call_node has the model which people_counter package uses and rtsp_camera is the camera package.
 
-```
+```Shell
 $ panorama-cli init-project --name example_project
 Successfully created the project skeleton at <path>
 
@@ -83,7 +83,7 @@ $ panorama-cli create-package --name rtsp_camera -camera
 
 To setup the camera, modify the following snippet of the interfaces section of the package.json for rtsp_camera package and make sure asset points to the right path.
 Update the username, password and streamUrl to the right values for your camera.
-```
+```JSON
 {
                 "description" : "Default desc",
                 "name": "rtsp_interface",
@@ -125,7 +125,7 @@ Raw models are compiled using Sagemaker Neo on Panorama Cloud before being deplo
 If you want to use the same model as this example, you can use [this](https://amazon.awsapps.com/workdocs/index.html#/document/01f9aef8bbe885fa4b29fc6fa2bf23ae6f0c93973e201ef6f4da9d8b26378736) squeezenet model and upload it to your s3.
 
 Since call_node has the model in this example, edit `packages/accountXYZ-call-node-1.0/descriptor.json` and add the following snippet into it. These values are specific to the squeezenet model that is being used in this example.
-```
+```JSON
 {
     "mlModelDescriptor": {
         "envelopeVersion": "2021-01-01",
@@ -147,7 +147,7 @@ Since call_node has the model in this example, edit `packages/accountXYZ-call-no
 
 Now we can add the model by passing in the path to the descriptor file which we just updated.
 If you want to download the model from S3 and then add it pass `--model-s3-uri` as shown below. Otherwise just use `--model-local-path` to pass the local model path instead.
-```
+```Shell
 $ panorama-cli add-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://<s3_bucket_path>/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call-node-1.0/descriptor.json
 download: s3://<s3_bucket_path>/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
 Successfully downloaded compiled artifacts (s3://<s3_bucket_path>squeezenet1_0.tar.gz) to ./assets/callable_squeezenet.tar.gz
@@ -166,7 +166,7 @@ Copy the following in the assets section of package.json
 Paste the above json snippet into the assets section of call_node package.json to link the asset which we just downloaded to call_node package.
 
 If call-node packages is specified as part of the command, asset snippet is copied into package.json automatically
-```
+```Shell
 $ panorama-cli add-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call_node-1.0/descriptor.json --packages-path packages/accountXYZ-call_node-1.0
 download: s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
 Successfully downloaded compiled artifacts (s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz) to ./assets/c399edb69582ff4c10dfdc4af86da49fccce442b9cda17351be8836ae3bd2417.tar.gz
@@ -174,7 +174,7 @@ Successfully downloaded compiled artifacts (s3://dx-cli-testing/raw_models/squee
 
 people_counter package has the core logic to count the number of people, so let's create a file called `people_counter_main.py` at `packages/accountXYZ-people-counter-package-1.0/src` and add the relevant code to that.
 Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have the following content
-```
+```JSON
 {
     "runtimeDescriptor":
     {
@@ -193,7 +193,7 @@ descriptor.json basically provides the path for the command that needs to run an
 (Temporary until 8/2) If you're using the beta build for 4.1.11, modify the Dockerfile in the package directory and change `demo` in the first line to `experiment`
 
 We can now build the package using the following command to create a container asset.
-```
+```Shell
 $ sudo panorama-cli build --container-asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
 ```
 
@@ -203,7 +203,7 @@ Refer to the example_app provided in this repository to better understand the ch
 example_app provided in this repository doesn't have the downloaded/built assets in it. You can find the entire application with all the assets at https://amazon.awsapps.com/workdocs/index.html#/document/2a82b1fb07a92a33c3eb6654e3e747a22440d051d4aa4d3b652859e04290f204
 
 When the applicaiton is ready, use the following command to upload all the packages to the cloud
-```
+```Shell
 $ sudo panorama-cli package-application
 ```
 
