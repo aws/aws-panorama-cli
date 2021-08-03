@@ -194,7 +194,7 @@ descriptor.json basically provides the path for the command that needs to run an
 
 We can now build the package using the following command to create a container asset.
 ```Shell
-$ sudo panorama-cli build --container-asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
+$ panorama-cli build --container-asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
 ```
 
 Next step would be to edit all the package.json's and define interfaces for all the packages.
@@ -204,7 +204,7 @@ example_app provided in this repository doesn't have the downloaded/built assets
 
 When the applicaiton is ready, use the following command to upload all the packages to the cloud
 ```Shell
-$ sudo panorama-cli package-application
+$ panorama-cli package-application
 ```
 
 After packaging the application, you can now use the graph.json from the package to start a deployment from the cloud!
