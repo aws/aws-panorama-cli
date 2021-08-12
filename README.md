@@ -150,7 +150,7 @@ Update the username, password and streamUrl to the right values for your camera.
 }
 ```
 
-#### Preparing a Models for Panorama
+#### Preparing a model for Panorama
 
 Raw models are compiled using Sagemaker Neo on Panorama Cloud before being deployed onto the device. All models for this reason are paired with a `descriptor.json` which has the required meta deta for compiling the raw model on the cloud.
 
@@ -223,7 +223,8 @@ Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have th
 descriptor.json basically provides the path for the command that needs to run and the path to the file that needs to be executed once the container starts.
 
 (Temporary) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and are still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 500245141608.dkr.ecr.us-west-2.amazonaws.com`
-(Temporary until 8/2) If you're using the beta build for 4.1.11, modify the Dockerfile in the package directory and change `demo` in the first line to `experiment`
+
+(Temporary) If you're using the device image version >= 4.1.11, modify the Dockerfile in the package directory and change `demo` in the first line to `experiment`
 
 We can now build the package using the following command to create a container asset.
 ```Shell
@@ -244,6 +245,6 @@ When the applicaiton is ready, use the following command to upload all the packa
 $ panorama-cli package-application
 ```
 
-### Deploying the application
+#### Deploying the application
 
 After packaging the application, you can now use the graph.json from the package to start a deployment from the cloud!

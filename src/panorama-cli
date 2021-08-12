@@ -323,25 +323,25 @@ def get_absolute_path(path):
         absolute_path = os.path.join(os.getcwd(), path)
     return absolute_path
 
-def build_package(docker_export=True):
+def build_package(docker_build=True):
 
     asset_name = args.container_asset_name
     asset_path = os.path.join(os.getcwd(), asset_name + ".tar")
-    if docker_export:
-        package_src_path = os.path.join(args.package_path,'src')
-        if os.path.exists(asset_path):
-            os.remove(asset_path)
-        
+
+    package_src_path = os.path.join(args.package_path,'src')
+    if os.path.exists(asset_path):
+        os.remove(asset_path)
+    
+    if docker_build:
         commands = ["TMPDIR=$(pwd) docker build -t " + asset_name + " " + args.package_path, "docker export --output=" + asset_name + ".tar $(docker create " + asset_name + ":latest)"]
-        for cmd in commands:
-            print(cmd)
-            return_code, out = execute([cmd], runtime_print_output=True)
-            if return_code != 0:
-                print(out)
-                sys.exit('Error while creating and exporting a docker image')
     else:
-        #Skip docker build and export, directly use the .tar provided
-        shutil.copy(args.container_export_tar_path, asset_path)
+        commands = ["docker export --output=" + asset_name + ".tar $(docker create " + args.container_image_uri + ")"]
+    for cmd in commands:
+        print(cmd)
+        return_code, out = execute([cmd], runtime_print_output=True)
+        if return_code != 0:
+            print(out)
+            sys.exit('Error while creating and exporting a docker image')
 
     descriptor_path = os.path.join(args.package_path, "descriptor.json")
     descriptorUri = get_file_sha_hash(descriptor_path) + ".json"
@@ -446,7 +446,7 @@ def build():
     build_package()
 
 def export():
-    build_package(docker_export=False)
+    build_package(docker_build=False)
 
 @verify_cwd_is_project_root
 def download_raw_model():
@@ -877,9 +877,9 @@ build_parser.add_argument("--container-asset-name",  required=True, help="Name o
 build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
 build_parser.set_defaults(func=build)
 
-export_parser = subparsers.add_parser("export", help="Add a docker export container to your package")
+export_parser = subparsers.add_parser("export-container", help="Export a pre-built docker container to your package")
 export_parser.add_argument("--container-asset-name",  required=True, help="Name of the package")
-export_parser.add_argument("--container-export-tar-path",  required=True, help="Local path of the exported .tar file")
+export_parser.add_argument("--container-image-uri",  required=True, help="Uri of the Docker Image")
 export_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
 export_parser.set_defaults(func=export)
 
