@@ -302,6 +302,10 @@ def get_aws_account_id():
     account_id = re.sub('[^A-Za-z0-9]+', '', output) #Removing all special characters from stdout
     return account_id
 
+def translate_error(error_message):
+    if "Could not connect" in error_message:
+        print("Network issue while connecting to the endpoint, check your connection and try again")
+
 def verify_cwd_is_project_root(func):
     def cwd_check_wrapper():
         application_root_dirs = ["assets", "graphs", "packages"]
@@ -672,6 +676,7 @@ def package_application():
             status, output = execute(['aws panorama list-packages --next-token ' + next_token])
             if status != 0:
                 print(output)
+                translate_error(output)
                 sys.exit('Error getting the list of packages')
             list_packages_output = json.loads(output)
             panorama_package_list += list_packages_output["Packages"]
@@ -688,12 +693,14 @@ def package_application():
             status, output = execute(['aws panorama create-package --package-name ' + package_name])
             if status != 0:
                 print(output)
+                translate_error(output)
                 sys.exit('Error creating package ' + package + ' on Panorama')
             package_info = json.loads(output)
         else:
             status, output = execute(['aws panorama describe-package --package-id ' + package_id])
             if status != 0:
                 print(output)
+                translate_error(output)
                 sys.exit('Error creating package ' + package + ' on Panorama')
             package_info = json.loads(output)
         package_id = package_info["PackageId"]
@@ -733,6 +740,7 @@ def package_application():
                     status, output = execute(["aws s3 cp " + asset_path + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + asset_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
                     if status != 0:
                         print(output)
+                        translate_error(output)
                         sys.exit('Error uploading package asset ' + asset_uri + ' to S3')
                 else:
                     print("Asset " + asset_uri + " already exists, ignoring upload")
@@ -744,6 +752,7 @@ def package_application():
                         status, output = execute(["aws s3 cp " + descriptor_path + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + descriptor_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
                         if status != 0:
                             print(output)
+                            translate_error(output)
                             sys.exit('Error uploading package descriptor ' + descriptor_uri + ' to S3')
                     else:
                         print("Descriptor " + descriptor_uri + " already exists, ignoring upload")
@@ -752,10 +761,12 @@ def package_application():
             status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + package_json_path + " --acl bucket-owner-full-control"], runtime_print_output=True)
             if status != 0:
                 print(output)
+                translate_error(output)
                 sys.exit('Error uploading package json to S3')
         status, output = execute(["aws panorama register-package-version --package-id " + package_info["PackageId"] + " --package-version " + package_version + " --patch-version " + package_json_hash + " --mark-latest"], runtime_print_output=True)
         if status != 0:
             print(output)
+            translate_error(output)
             sys.exit('Error registering package json with Panorama')
         print("Registered " + package_name + " with patch version " + package_json_hash)
 
