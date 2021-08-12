@@ -19,7 +19,7 @@ or this one for PDX Gamma instead:
 ```Shell
 sed -i.bak 's-requestUri":"/-requestUri":"/gamma/-g; s/endpointPrefix":"panorama/endpointPrefix":"6m0zzkt7pf.execute-api/g' OmniCloudServiceLambda.api.json
 ```
-
+or skip this step entirely if you want to use the Prod endpoint instead.
 
 3.  Configure cli setup locally:
 ```Shell
@@ -50,7 +50,7 @@ $ panorama-cli -h
 $ panorama-cli <command> -h
 ```
 
-**Deploying a sample application with assets downloaded**
+### Deploying a sample application with assets downloaded
 
 Link to Samples Repo - to be added
 
@@ -64,7 +64,7 @@ $ panorama-cli import-application
 $ panorama-cli package-application
 ```
 
-**Application creation flow example**
+### Application creation flow example
 
 This is an example of a sample app which has three node packages. people_counter package has core logic for counting the number of people, call_node has the model which people_counter package uses and rtsp_camera is the camera package.
 
@@ -80,6 +80,35 @@ $ panorama-cli create-package --name call_node -model
 
 $ panorama-cli create-package --name rtsp_camera -camera
 ```
+
+#### Application Structure
+
+At this point, the application structure looks as follows.
+`graph.json` under `graphs` directory lists down all the packages, nodes and edges in this application. Nodes and Edges are the way to define an application graph in Panorama.
+`package.json` in each package has details about the package and the assets it uses. Interface definitions for the package need to be defined in this as well.
+Model package `call-node` has a `decriptor.json` which needs to have the metadata required for compiling the model. More about this in the models section.
+In `people_counter` package which is the default i.e container type, all the implementation related files go into the `src` directory and `descriptor.json` has details about which command and file to use when the container is launched.
+`assets` directory is where all the assets reside. Developer is not expected to make any changes in this directory.
+
+```Shell
+├── assets
+├── graphs
+│   └── example_project
+│       └── graph.json
+└── packages
+    ├── accountXYZ-call_node-1.0
+    │   ├── descriptor.json
+    │   └── package.json
+    ├── accountXYZ-people_counter-1.0
+    │   ├── Dockerfile
+    │   ├── descriptor.json
+    │   ├── package.json
+    │   └── src
+    └── accountXYZ-rtsp_camera-1.0
+        └── package.json
+```
+
+#### Setting Up the Camera
 
 To setup the camera, modify the following snippet of the interfaces section of the package.json for rtsp_camera package and make sure asset points to the right path.
 Update the username, password and streamUrl to the right values for your camera.
@@ -121,10 +150,17 @@ Update the username, password and streamUrl to the right values for your camera.
 }
 ```
 
-Raw models are compiled using Sagemaker Neo on Panorama Cloud before being deployed onto the device. All models for this reason are paired with a descriptor json which has the required meta deta for compiling the raw model on the cloud.
-If you want to use the same model as this example, you can use [this](https://amazon.awsapps.com/workdocs/index.html#/document/01f9aef8bbe885fa4b29fc6fa2bf23ae6f0c93973e201ef6f4da9d8b26378736) squeezenet model and upload it to your s3.
+#### Preparing a Models for Panorama
 
-Since call_node has the model in this example, edit `packages/accountXYZ-call-node-1.0/descriptor.json` and add the following snippet into it. These values are specific to the squeezenet model that is being used in this example.
+Raw models are compiled using Sagemaker Neo on Panorama Cloud before being deployed onto the device. All models for this reason are paired with a `descriptor.json` which has the required meta deta for compiling the raw model on the cloud.
+
+Details about using Sagemaker Neo to compile models can be found at https://docs.aws.amazon.com/sagemaker/latest/dg/neo-job-compilation.html
+
+All the model info that is used to compile models on Sagemaker Neo are part of the `descriptor.json`. Values used in this example are specific to the squeezenet model that is being used in this example.
+
+If you want to use the same model as this example, you can use [this](https://amazon.awsapps.com/workdocs/index.html#/document/01f9aef8bbe885fa4b29fc6fa2bf23ae6f0c93973e201ef6f4da9d8b26378736) squeezenet model. 
+
+Since call_node has the model in this example, edit `packages/accountXYZ-call-node-1.0/descriptor.json` and add the following snippet into it.
 ```JSON
 {
     "mlModelDescriptor": {
@@ -146,12 +182,15 @@ Since call_node has the model in this example, edit `packages/accountXYZ-call-no
 ```
 
 Now we can add the model by passing in the path to the descriptor file which we just updated.
+
 If you want to download the model from S3 and then add it pass `--model-s3-uri` as shown below. Otherwise just use `--model-local-path` to pass the local model path instead.
+
+`--packages-path` can be used to pass all the packges where this model is being used and after downloading the model, DX CLI automatically adds the downloaded model into assets section of all the specified packages.
+
 ```Shell
-$ panorama-cli add-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://<s3_bucket_path>/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call-node-1.0/descriptor.json
+$ panorama-cli add-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call_node-1.0/descriptor.json --packages-path packages/accountXYZ-call_node-1.0
 download: s3://<s3_bucket_path>/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
 Successfully downloaded compiled artifacts (s3://<s3_bucket_path>squeezenet1_0.tar.gz) to ./assets/callable_squeezenet.tar.gz
-Copy the following in the assets section of package.json
 {
     "name": "callable_squeezenet",
     "implementations": [
@@ -163,14 +202,8 @@ Copy the following in the assets section of package.json
     ]
 }
 ```
-Paste the above json snippet into the assets section of call_node package.json to link the asset which we just downloaded to call_node package.
 
-If call-node packages is specified as part of the command, asset snippet is copied into package.json automatically
-```Shell
-$ panorama-cli add-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call_node-1.0/descriptor.json --packages-path packages/accountXYZ-call_node-1.0
-download: s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
-Successfully downloaded compiled artifacts (s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz) to ./assets/c399edb69582ff4c10dfdc4af86da49fccce442b9cda17351be8836ae3bd2417.tar.gz
-```
+#### Writing code and building a container
 
 people_counter package has the core logic to count the number of people, so let's create a file called `people_counter_main.py` at `packages/accountXYZ-people-counter-package-1.0/src` and add the relevant code to that.
 Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have the following content
@@ -197,14 +230,20 @@ We can now build the package using the following command to create a container a
 $ panorama-cli build --container-asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
 ```
 
+#### Defining interfaces and app graph
+
 Next step would be to edit all the package.json's and define interfaces for all the packages.
 After that, you can edit the graph.json under `graphs` directory to define nodes from the above defined interfaces and add edges between them.
 Refer to the example_app provided in this repository to better understand the changes that are needed.
 example_app provided in this repository doesn't have the downloaded/built assets in it. You can find the entire application with all the assets at https://amazon.awsapps.com/workdocs/index.html#/document/2a82b1fb07a92a33c3eb6654e3e747a22440d051d4aa4d3b652859e04290f204
 
+#### Registering and Uploading all local packages in the Cloud
+
 When the applicaiton is ready, use the following command to upload all the packages to the cloud
 ```Shell
 $ panorama-cli package-application
 ```
+
+### Deploying the application
 
 After packaging the application, you can now use the graph.json from the package to start a deployment from the cloud!
