@@ -215,7 +215,7 @@ Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have th
         "entry":
         {
             "path": "python3",
-            "name": "/Panorama/people_counter_main.py"
+            "name": "/panorama/people_counter_main.py"
         }
     }
 }
@@ -240,7 +240,7 @@ example_app provided in this repository doesn't have the downloaded/built assets
 
 #### Registering and Uploading all local packages in the Cloud
 
-When the applicaiton is ready, use the following command to upload all the packages to the cloud
+When the application is ready, use the following command to upload all the packages to the cloud
 ```Shell
 $ panorama-cli package-application
 ```

@@ -6,7 +6,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 log = logging.getLogger('my_logger')
 log.setLevel(logging.DEBUG)
-handler = RotatingFileHandler("/data/containerLogs/app.log", maxBytes=100000000, backupCount=2)
+handler = RotatingFileHandler("/panorama/logs/app.log", maxBytes=100000000, backupCount=2)
 formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
                                   datefmt='%Y-%m-%d %H:%M:%S')
 handler.setFormatter(formatter)
@@ -21,6 +21,9 @@ class people_counter(p.node):
         try:
             self.message = 'Hello World',
             self.terminate = False
+            with open('/panorama/storage/state.txt', 'a') as the_file:
+                the_file.write('Successful Write on Startup\n')
+                log.info("Write to Disk! !")
         except:
             pass
     def my_func(self):
