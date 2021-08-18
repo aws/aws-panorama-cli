@@ -14,6 +14,9 @@ import hashlib
 import time
 import re
 
+from PyInquirer import prompt
+from prompt_toolkit.shortcuts import print_tokens
+
 # Static values
 RUNNING_APP_LIST = 'running_apps'
 DOCKERFILE_PATH = 'dockerfile_path'
@@ -671,9 +674,12 @@ def package_application():
         panorama_package_list = []
         print("Uploading package " + package_name)
         paginate = True
-        next_token = "None"
+        next_token = None
         while paginate:
-            status, output = execute(['aws panorama list-packages --next-token ' + next_token])
+            if next_token != None :
+                status, output = execute(['aws panorama list-packages --next-token ' + next_token])
+            else:
+                status, output = execute(['aws panorama list-packages'])
             if status != 0:
                 print(output)
                 translate_error(output)
@@ -823,6 +829,230 @@ def deploy_package_on_device():
     status, output = execute(['scp deploy_application.json ' + device_location], runtime_print_output=True)
     execute(['rm deploy_application.json'])
 
+def define_package_interface():
+    package_json_path = os.path.join(args.package_path, "package.json")
+    with open(package_json_path, "r+") as f:
+        package_json = json.load(f)
+    asset_list = []
+    for asset in package_json["nodePackage"]["assets"]:
+        asset_list.append(asset["name"])
+    if len(asset_list) == 0:
+        print("Add assets to the package.json before defining interfaces")
+        return
+    add_interface = True
+    interfaces = []
+    while add_interface:
+            questions = [
+                {
+                    'type': 'input',
+                    'name': 'name',
+                    'message': 'What\'s the name of the interface?'
+                },
+                {
+                    'type': 'list',
+                    'name': 'asset',
+                    'message': 'Which asset is linked to this interface?',
+                    'choices': asset_list
+                },
+                {
+                    'type': 'input',
+                    'name': 'inputs',
+                    'message': 'How many inputs does this interface have?',
+                    "filter": lambda val: int(val)
+                },
+                {
+                    'type': 'input',
+                    'name': 'outputs',
+                    'message': 'How many outputs does this interface have?',
+                    "filter": lambda val: int(val)
+                }
+            ]
+            interface = prompt(questions)
+            num_inputs = interface["inputs"]
+            num_outputs = interface["outputs"]
+            interface["inputs"] = []
+            interface["outputs"] = []
+            for i in range(num_inputs):
+                questions = [
+                    {
+                        'type': 'input',
+                        'name': 'name',
+                        'message': 'Enter name for input '+ str(i+1)
+                    },
+                    {
+                        'type': 'list',
+                        'name': 'type',
+                        'message': 'Enter type for input '+str(i+1),
+                        'choices': ['media', 'string', 'float32']
+                    }
+                ]
+                interface_input = prompt(questions)
+                interface_input["description"] = "Default description for " + interface_input["name"]
+                interface["inputs"].append(interface_input)
+            for i in range(num_outputs):
+                questions = [
+                    {
+                        'type': 'input',
+                        'name': 'name',
+                        'message': 'Enter name for output '+str(i+1)
+                    },
+                    {
+                        'type': 'list',
+                        'name': 'type',
+                        'message': 'Enter type for output '+str(i+1),
+                        'choices': ['media', 'string', 'float32']
+                    }
+                ]
+                interface_output = prompt(questions)
+                interface_output["description"] = "Default description for " + interface_output["name"]
+                interface["outputs"].append(interface_output)
+            interfaces.append(interface)
+            questions = [
+                {
+                    'type': 'confirm',
+                    'name': 'add_another_interface',
+                    'message': 'Do you want to add another interface?',
+                    'default': False
+                }
+            ]
+            answers = prompt(questions)
+            add_interface = answers["add_another_interface"]
+    print(interfaces)
+    package_json_path = os.path.join(args.package_path, "package.json")
+    with open(package_json_path, "r+") as f:
+        package_json = json.load(f)
+        package_json["nodePackage"]["interfaces"] += interfaces
+        f.seek(0)
+        json.dump(package_json, f, indent=4)
+        f.truncate()
+
+def define_graph():
+    graphs_path = os.path.join(os.getcwd(), "graphs")
+    graph_dir = [a for a in os.listdir(graphs_path) if os.path.isdir(os.path.join(graphs_path, a))][0]
+    graph_json_path = os.path.join(graphs_path, graph_dir, "graph.json")
+    with open(graph_json_path, "r+") as f:
+        graph_json = json.load(f)
+    
+    interface_info = {}
+    all_interfaces = []
+    packages_dir = os.path.join(os.getcwd(), 'packages')
+    package_list = [a for a in os.listdir(packages_dir) if os.path.isdir(os.path.join(packages_dir, a))]
+    for package in package_list:
+        package_path = os.path.join(packages_dir, package)
+        package_name = '-'.join(package.split('-')[1:-1]) #TODO Too hacky right now, improve the logic. Extracts package_name, for example, people-counter-package from 619501627742-people-counter-package-1.0
+        account_id = package.split('-')[0]
+        package_json_path = os.path.join(package_path, "package.json")
+        with open(package_json_path, "r+") as f:
+            package_json = json.load(f)
+        interfaces = package_json["nodePackage"]["interfaces"]
+        package_id = account_id + "::" + package_name
+        for interface in interfaces:
+            interface_id = package_id + "." + interface["name"]
+            all_interfaces.append(interface_id)
+            interface_info[interface_id] = interface
+
+    node_info = {}
+    custom_nodes = []
+    update_graph = True
+    while update_graph:
+        question = [
+            {
+                'type': 'list',
+                'name': 'operation_type',
+                'message': 'What do you want to add?',
+                'choices': ['Nodes', 'Edges', 'Neither, Exit']
+            }
+        ]
+        response = prompt(question)
+        if response['operation_type'] == "Nodes":
+            questions = [
+                {
+                    'type': 'input',
+                    'name': 'name',
+                    'message': 'What\'s the name of the node?'
+                },
+                {
+                    'type': 'list',
+                    'name': 'interface',
+                    'message': 'Do you want of connect any of these interfaces to this node?',
+                    'choices': ['None'] + all_interfaces
+                },
+                {
+                    'type': 'input',
+                    'name': 'value',
+                    'message': 'What\'s the value of this node?',
+                    'when' : lambda answers: answers['interface'] == 'None'
+                },
+                {
+                    'type': 'list',
+                    'name': 'interface',
+                    'message': 'What\'s the type of this node?',
+                    'choices': ['media', 'string', 'float32'],
+                    'when' : lambda answers: True if 'value' in answers else False
+                },
+                {
+                    'type': 'list',
+                    'name': 'overridable',
+                    'message': 'Do you want this node overridable from the consolde',
+                    'choices': ['False', 'True'],
+                    'filter': lambda x: True if x == 'True' else False
+                }
+            ]
+            node = prompt(questions)
+            graph_json["nodeGraph"]["nodes"].append(node)
+            if node['interface'] in all_interfaces:
+                node_inputs = []
+                node_outputs = []
+                for input in interface_info[node['interface']]["inputs"]:
+                    node_inputs.append(input["name"])
+                for output in interface_info[node['interface']]["outputs"]:
+                    node_outputs.append(output["name"])
+                node_info[node["name"]] = {'inputs':node_inputs, 'outputs':node_outputs}
+            else:
+                custom_nodes.append(node['name'])
+        elif response['operation_type'] == "Edges":
+            questions = [
+                {
+                    'type': 'list',
+                    'name': 'src_node',
+                    'message': 'Select the src node for the edge',
+                    'choices': list(node_info.keys()) + custom_nodes
+                },
+                {
+                    'type': 'list',
+                    'name': 'src_node_output',
+                    'message': 'Select the output port for src node',
+                    'when': lambda answers: answers["src_node"] not in custom_nodes,
+                    'default':'',
+                    'choices': lambda answers: node_info[answers["src_node"]]["outputs"] if answers["src_node"] not in custom_nodes else [answers["src_node"]],
+                    'filter': lambda x: '.' + x
+                },
+                {
+                    'type': 'list',
+                    'name': 'dst_node',
+                    'message': 'Select the dst node for the edge',
+                    'choices': list(node_info.keys()) + custom_nodes
+                },
+                {
+                    'type': 'list',
+                    'name': 'dst_node_output',
+                    'message': 'Select the input port for dst node',
+                    'when': lambda answers: answers["dst_node"] not in custom_nodes,
+                    'default':'',
+                    'choices': lambda answers: node_info[answers["dst_node"]]["inputs"] if answers["dst_node"] not in custom_nodes else [answers["dst_node"]],
+                    'filter': lambda x: '.' + x
+                }
+            ]
+            edge = prompt(questions)
+            producer = edge['src_node'] if edge['src_node'] in custom_nodes else edge['src_node'] + edge['src_node_output']
+            consumer = edge['dst_node'] if edge['dst_node'] in custom_nodes else edge['dst_node'] + edge['dst_node_output']
+            graph_json["nodeGraph"]["edges"].append({"producer":producer, "consumer":consumer})
+        else:
+            update_graph = False
+    #print(graph_json)
+    with open(graph_json_path, "r+") as f:
+        json.dump(graph_json, f, indent=4)
+
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers()
 
@@ -889,6 +1119,13 @@ package_application_parser.set_defaults(func=package_application)
 
 import_application_parser = subparsers.add_parser("import-application", help="Import an application created by someone else. Updates account id at all relevant places")
 import_application_parser.set_defaults(func=import_application)
+
+define_interfaces_parser = subparsers.add_parser("define-package-interface", help="Define new interface for the package")
+define_interfaces_parser.add_argument("--package-path",  required=True, help="Path for the package")
+define_interfaces_parser.set_defaults(func=define_package_interface)
+
+define_graph_parser = subparsers.add_parser("define-graph", help="Build the graph for the application")
+define_graph_parser.set_defaults(func=define_graph)
 
 app_device_setup_parser = subparsers.add_parser("setup-app-on-device", help="Initial setup for running the application on the device")
 app_device_setup_parser.set_defaults(func=setup_app_on_device)
