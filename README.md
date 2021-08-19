@@ -224,7 +224,7 @@ descriptor.json basically provides the path for the command that needs to run an
 
 (Temporary) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and are still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 500245141608.dkr.ecr.us-west-2.amazonaws.com`
 
-(Temporary) If you're using the device image version >= 4.1.11, modify the Dockerfile in the package directory and change `demo` in the first line to `experiment`
+(Temporary) If you're using the device image version >= 4.1.11, modify the Dockerfile in the package directory and change `demo5` in the first line to `experiment`
 
 We can now build the package using the following command to create a container asset.
 ```Shell
