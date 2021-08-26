@@ -5,7 +5,7 @@
         "entry":
         {
             "path": "python3",
-            "name": "/Panorama/<entry_file_name_under_src>"
+            "name": "/panorama/<entry_file_name_under_src>"
         }
     }
 }
