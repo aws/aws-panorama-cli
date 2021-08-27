@@ -295,7 +295,7 @@ def get_file_sha_hash(file_path):
     return file_hash
 
 def get_aws_account_id():
-    status, output = execute(['aws sts get-caller-identity --query Account --output text'])
+    status, output = execute(['c --query Account --output text'])
     if status != 0:
         print(output)
         sys.exit('Error getting AWS account ID, please configure your account before proceeding')
@@ -793,6 +793,8 @@ def import_application():
         graph_json = json.load(f)
     old_account_id = ""
     for package in graph_json["nodeGraph"]["packages"]:
+        if package["name"].split("::")[0] == "panorama":
+            continue
         old_account_id = package["name"].split("::")[0]
         package["name"] = package["name"].replace(old_account_id, account_id)
     for node in graph_json["nodeGraph"]["nodes"]:
