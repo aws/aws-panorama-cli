@@ -914,7 +914,12 @@ create_fs_parser.add_argument("--file-path", required=True, help="Path for the t
 create_fs_parser.add_argument('-ext4fs', action='store_true')
 create_fs_parser.set_defaults(func=create_fs)
 
-build_parser = subparsers.add_parser("build", help="Build the package")
+build_parser = subparsers.add_parser("build", help="To be deprecated, used to build the package. Same as build-container-package command")
+build_parser.add_argument("--container-asset-name",  required=True, help="Name of the package")
+build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
+build_parser.set_defaults(func=build)
+
+build_parser = subparsers.add_parser("build-container-package", help="Build the package")
 build_parser.add_argument("--container-asset-name",  required=True, help="Name of the package")
 build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
 build_parser.set_defaults(func=build)

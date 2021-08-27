@@ -104,7 +104,7 @@ In `people_counter` package which is the default i.e container type, all the imp
         └── src
 ```
 
-### Setting up Cameras for Panorama
+#### Setting up Cameras for Panorama
 
 Panorama has a concept of Abstract Camera Package which the developers can use while developing their apps. These abstract camera package can be overriden and linked to an actual camera in the developer's Panorama account while deploying.
 
@@ -209,7 +209,7 @@ descriptor.json basically provides the path for the command that needs to run an
 
 We can now build the package using the following command to create a container asset.
 ```Shell
-$ panorama-cli build --container-asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
+$ panorama-cli build-container-package --container-asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
 ```
 
 #### Defining interfaces and app graph
