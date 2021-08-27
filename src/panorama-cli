@@ -323,6 +323,14 @@ def get_absolute_path(path):
         absolute_path = os.path.join(os.getcwd(), path)
     return absolute_path
 
+@verify_cwd_is_project_root
+def get_graph_json_path():
+    graphs_path = os.path.join(os.getcwd(), "graphs")
+    graph_dir = [a for a in os.listdir(graphs_path) if os.path.isdir(os.path.join(graphs_path, a))][0]
+    graph_json_path = os.path.join(graphs_path, graph_dir, "graph.json")
+    print(graph_json_path)
+    return graph_json_path
+
 def build_package(docker_build=True):
 
     asset_name = args.container_asset_name
@@ -615,6 +623,31 @@ def create_package():
         shutil.copyfile(descriptor_src_path, descriptor_dst_path)
     print('Successfully created package ' + args.name)
 
+@verify_cwd_is_project_root
+def add_abstract_camera():
+    graphs_path = os.path.join(os.getcwd(), "graphs")
+    graph_dir = [a for a in os.listdir(graphs_path) if os.path.isdir(os.path.join(graphs_path, a))][0]
+    graph_json_path = os.path.join(graphs_path, graph_dir, "graph.json")
+    with open(graph_json_path, "r+") as f:
+        graph_json = json.load(f)
+        graph_json["nodeGraph"]["packages"].append({
+                            "name": "panorama::abstract_rtsp_media_source",
+                            "version": "1.0"
+                        })
+        graph_json["nodeGraph"]["nodes"].append({
+                            "name": args.name,
+                            "interface": "panorama::abstract_rtsp_media_source.rtsp_v1_interface",
+                            "overridable": True,
+                            "launch": "onAppStart",
+                            "decorator": {
+                                "title": "Camera " + args.name,
+                                "description": "Default description for camera " + args.name
+                            }
+                        })
+        f.seek(0)
+        json.dump(graph_json, f, indent=4)
+        f.truncate()
+
 def create_fs():
     start = time.time()
     file_name = os.path.basename(args.file_path)
@@ -871,6 +904,10 @@ create_package_parser.add_argument("--name", required=True, help="Name of the pr
 create_package_parser.add_argument('-camera', action='store_true')
 create_package_parser.add_argument('-model', action='store_true')
 create_package_parser.set_defaults(func=create_package)
+
+create_package_parser = subparsers.add_parser("add-abstract-camera", help="Add an abstract camera package")
+create_package_parser.add_argument("--name", required=True, help="Name of the Camera")
+create_package_parser.set_defaults(func=add_abstract_camera)
 
 create_fs_parser = subparsers.add_parser("create-fs", help="Creates fs for a given tar file")
 create_fs_parser.add_argument("--file-path", required=True, help="Path for the tar file")

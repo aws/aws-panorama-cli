@@ -66,7 +66,7 @@ $ panorama-cli package-application
 
 ### Application creation flow example
 
-This is an example of a sample app which has three node packages. people_counter package has core logic for counting the number of people, call_node has the model which people_counter package uses and rtsp_camera is the camera package.
+This is an example of a sample app which has two node packages. people_counter package has core logic for counting the number of people, call_node has the model which people_counter package uses. We will also add an abstract camera to the application which can be linked to a real camera from the console while deploying the application. 
 
 ```Shell
 $ panorama-cli init-project --name example_project
@@ -77,8 +77,6 @@ $ cd example_project
 $ panorama-cli create-package --name people_counter
 
 $ panorama-cli create-package --name call_node -model
-
-$ panorama-cli create-package --name rtsp_camera -camera
 ```
 
 #### Application Structure
@@ -99,56 +97,39 @@ In `people_counter` package which is the default i.e container type, all the imp
     ├── accountXYZ-call_node-1.0
     │   ├── descriptor.json
     │   └── package.json
-    ├── accountXYZ-people_counter-1.0
-    │   ├── Dockerfile
-    │   ├── descriptor.json
-    │   ├── package.json
-    │   └── src
-    └── accountXYZ-rtsp_camera-1.0
-        └── package.json
+    └── accountXYZ-people_counter-1.0
+        ├── Dockerfile
+        ├── descriptor.json
+        ├── package.json
+        └── src
 ```
 
-#### Setting Up the Camera
+### Setting up Cameras for Panorama
 
-To setup the camera, modify the following snippet of the interfaces section of the package.json for rtsp_camera package and make sure asset points to the right path.
-Update the username, password and streamUrl to the right values for your camera.
+Panorama has a concept of Abstract Camera Package which the developers can use while developing their apps. These abstract camera package can be overriden and linked to an actual camera in the developer's Panorama account while deploying.
+
+Let's add an abstract camera to this application by running the following command.
+
+```
+$ panorama-cli add-abstract-camera --name front_door_camera
+```
+
+This command defines an abstract camera package in the `packages` section of and adds the following snippet in the `nodes` section of the `graph.json`. You can modify the title and description to be more relevant to the use case.
+
 ```JSON
 {
-                "description" : "Default desc",
-                "name": "rtsp_interface",
-                "category": "media_source",
-                "asset": "rtsp_camera",
-                "inputs":
-                [
-                    {
-                        "description": "Camera username",
-                        "name": "username",
-                        "type": "string",
-                        "default": "root"
-                    },
-                    {   
-                        "description": "Camera password",
-                        "name": "password",
-                        "type": "string",
-                        "default": "Aws2017!"
-                    },
-                    {
-                        "description": "Camera streamUrl",
-                        "name": "streamUrl",
-                        "type": "string",
-                        "default": "rtsp://10.92.200.68/onvif-media/media.amp?profile=profile_4_h264&sessiontimeout=60&streamtype=unicast"
-                    }       
-                ],
-                "outputs":
-                [
-                    {
-                        "description": "Video stream output",
-                        "name": "video",
-                        "type": "media"
-                    }
-                ]
+    "name": "front_door_camera",
+    "interface": "panorama::abstract_rtsp_media_source.rtsp_v1_interface",
+    "overridable": true,
+    "launch": "onAppStart",
+    "decorator": {
+        "title": "Camera front_door_camera",
+        "description": "Default description for camera front_door_camera"
+    }
 }
 ```
+
+`rtsp_v1_interface` is the defined interface for an abstract camera and it has an output port called `video_out` which can be used to forward the camera output to another node. You can also find an example for this in the example_app's [graph.json](https://github.com/aws/aws-panorama-cli/blob/main/example_app/graphs/example_app/graph.json#L60) provided in this repository.
 
 #### Preparing a model for Panorama
 

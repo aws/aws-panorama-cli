@@ -1,66 +1,73 @@
 {
-  "nodeGraph" : {
-    "envelopeVersion" : "2021-01-01",
-    "packages" : [
-        {
-            "name" : "619501627742::people-counter-package",
-            "version" : "1.0"
-        },
-        {
-            "name" : "619501627742::rtsp-camera",
-            "version" : "1.0"
-        },
-        {
-            "name" : "619501627742::call-node",
-            "version" : "1.0"
-        }
-    ],
-    "nodes" : [
-        {
-            "name" : "people_counter_node_instance",
-            "interface" : "619501627742::people-counter-package.people_counter_contaier_node",
-            "overridable" : false,
-            "launch" : "onAppStart"
-        },
-        {
-            "name" : "classification-model",
-            "interface" : "619501627742::call-node.squezenet_interface",
-            "overridable" : false,
-            "launch" : "onAppStart"
-        },
-        {
-            "name" : "front_door_camera_node",
-            "interface" : "619501627742::rtsp-camera.rtsp_interface",
-            "overridable" : true,
-            "launch" : "onAppStart"
-        },
-        {
-            "description" : "demo2 model name",
-            "name" : "model_name",
-            "interface" : "string",
-            "value" : "demo2_model",
-            "overridable" : false
-        },
-        {
-            "name" : "detection_threshold",
-            "interface" : "float32",
-            "value" : 60.0,
-            "overridable" : false
-        }
-    ],
-    "edges" : [
-        {
-            "producer" : "front_door_camera_node.videoOut",
-            "consumer" : "people_counter_node_instance.video_in"
-        },
-        {
-            "producer" : "model_name",
-            "consumer" : "people_counter_node_instance.model_name"
-        },
-        {
-            "producer" : "detection_threshold",
-            "consumer" : "people_counter_node_instance.threshold"
-        }
-    ]
-}
+    "nodeGraph": {
+        "envelopeVersion": "2021-01-01",
+        "packages": [
+            {
+                "name": "619501627742::people_counter",
+                "version": "1.0"
+            },
+            {
+                "name": "619501627742::call_node",
+                "version": "1.0"
+            },
+            {
+                "name": "panorama::abstract_rtsp_media_source",
+                "version": "1.0"
+            }
+        ],
+        "nodes": [
+            {
+                "name": "people_counter_node_instance",
+                "interface": "619501627742::people_counter.people_counter_contaier_node",
+                "overridable": false,
+                "launch": "onAppStart"
+            },
+            {
+                "name": "classification_model",
+                "interface": "619501627742::call_node.mxnet_interface",
+                "overridable": false,
+                "launch": "onAppStart"
+            },
+            {
+                "name": "front_door_camera_node",
+                "interface": "panorama::abstract_rtsp_media_source.rtsp_v1_interface",
+                "overridable": true,
+                "launch": "onAppStart",
+                "decorator": {
+                    "title": "Front door cameras",
+                    "description": "Connect your front door cameras to this input"
+                }
+            },
+            {
+                "name": "model_name",
+                "interface": "string",
+                "value": "AUTO_TEST_MXNET_RESNET50",
+                "overridable": false
+            },
+            {
+                "name": "detection_threshold",
+                "interface": "float32",
+                "value": 60.0,
+                "overridable": true,
+                "decorator": {
+                    "title": "Detection threshold",
+                    "description": "This parameter can be used to adjust the detection threshold"
+                }
+            }
+        ],
+        "edges": [
+            {
+                "producer": "front_door_camera_node.video_out",
+                "consumer": "people_counter_node_instance.video_in"
+            },
+            {
+                "producer": "model_name",
+                "consumer": "people_counter_node_instance.model_name"
+            },
+            {
+                "producer": "detection_threshold",
+                "consumer": "people_counter_node_instance.threshold"
+            }
+        ]
+    }
 }
