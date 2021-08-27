@@ -114,7 +114,7 @@ Let's add an abstract camera to this application by running the following comman
 $ panorama-cli add-abstract-camera --name front_door_camera
 ```
 
-This command defines an abstract camera package in the `packages` section of and adds the following snippet in the `nodes` section of the `graph.json`. You can modify the title and description to be more relevant to the use case.
+This command defines an abstract camera package in the `packages` section and adds the following snippet in the `nodes` section of the `graph.json`. You can modify the title and description to be more relevant to the use case.
 
 ```JSON
 {
