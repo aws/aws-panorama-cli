@@ -106,7 +106,7 @@ In `people_counter` package which is the default i.e container type, all the imp
 
 #### Setting up Cameras for Panorama
 
-Panorama has a concept of Abstract Camera Package which the developers can use while developing their apps. These abstract camera package can be overriden and linked to an actual camera in the developer's Panorama account while deploying.
+Panorama has a concept of Abstract Camera Package which the developers can use while developing their apps. This abstract camera package can be overriden and linked to an actual camera in the developer's Panorama account while deploying.
 
 Let's add an abstract camera to this application by running the following command.
 
@@ -204,8 +204,6 @@ Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have th
 descriptor.json basically provides the path for the command that needs to run and the path to the file that needs to be executed once the container starts.
 
 (Temporary) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and are still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 500245141608.dkr.ecr.us-west-2.amazonaws.com`
-
-(Temporary) If you're using the device image version >= 4.1.11, modify the Dockerfile in the package directory and change `demo5` in the first line to `experiment`
 
 We can now build the package using the following command to create a container asset.
 ```Shell
