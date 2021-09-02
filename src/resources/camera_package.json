@@ -29,19 +29,19 @@
                         "description": "Camera username",
                         "name": "username",
                         "type": "string",
-                        "default": "root"
+                        "default": "<username>"
                     },
                     {   
-                        "description": "Camera password",
+                        "description": "Camera password. Use empty string if there's no password",
                         "name": "password",
                         "type": "string",
-                        "default": "Aws2017!"
+                        "default": "<password>"
                     },
                     {
                         "description": "Camera streamUrl",
                         "name": "streamUrl",
                         "type": "string",
-                        "default": "rtsp://10.92.200.68/onvif-media/media.amp?profile=profile_4_h264&sessiontimeout=60&streamtype=unicast"
+                        "default": "rtsp://<stream url>"
                     }       
                 ],
                 "outputs":
