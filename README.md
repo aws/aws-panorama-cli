@@ -76,7 +76,7 @@ $ cd example_project
 
 $ panorama-cli create-package --name people_counter
 
-$ panorama-cli create-package --name call_node -model
+$ panorama-cli create-package --name call_node --type Model
 ```
 
 #### Application Structure
@@ -84,7 +84,7 @@ $ panorama-cli create-package --name call_node -model
 At this point, the application structure looks as follows.
 `graph.json` under `graphs` directory lists down all the packages, nodes and edges in this application. Nodes and Edges are the way to define an application graph in Panorama.
 `package.json` in each package has details about the package and the assets it uses. Interface definitions for the package need to be defined in this as well.
-Model package `call-node` has a `decriptor.json` which needs to have the metadata required for compiling the model. More about this in the models section.
+Model package `call-node` has a `descriptor.json` which needs to have the metadata required for compiling the model. More about this in the models section.
 In `people_counter` package which is the default i.e container type, all the implementation related files go into the `src` directory and `descriptor.json` has details about which command and file to use when the container is launched.
 `assets` directory is where all the assets reside. Developer is not expected to make any changes in this directory.
 
@@ -111,7 +111,7 @@ Panorama has a concept of Abstract Camera Package which the developers can use w
 Let's add an abstract camera to this application by running the following command.
 
 ```
-$ panorama-cli add-abstract-camera --name front_door_camera
+$ panorama-cli add-panorama-package --type camera --name front_door_camera
 ```
 
 This command defines an abstract camera package in the `packages` section and adds the following snippet in the `nodes` section of the `graph.json`. You can modify the title and description to be more relevant to the use case.
@@ -207,7 +207,7 @@ descriptor.json basically provides the path for the command that needs to run an
 
 We can now build the package using the following command to create a container asset.
 ```Shell
-$ panorama-cli build-container-package --container-asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
+$ panorama-cli build-container --asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
 ```
 
 #### Defining interfaces and app graph
