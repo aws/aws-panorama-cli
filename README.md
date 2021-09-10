@@ -200,7 +200,7 @@ descriptor.json basically provides the path for the command that needs to run an
 
 We can now build the package using the following command to create a container asset.
 ```Shell
-$ panorama-cli build-container --asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
+$ panorama-cli build-container --container-asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
 ```
 
 #### Defining interfaces and app graph

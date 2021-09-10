@@ -337,7 +337,7 @@ def get_graph_json_path():
 
 def build_package(docker_build=True):
 
-    asset_name = args.asset_name
+    asset_name = args.container_asset_name
     asset_path = os.path.join(os.getcwd(), asset_name + ".tar")
 
     package_src_path = os.path.join(args.package_path,'src')
@@ -347,7 +347,7 @@ def build_package(docker_build=True):
     if docker_build:
         commands = ["TMPDIR=$(pwd) docker build -t " + asset_name + " " + args.package_path, "docker export --output=" + asset_name + ".tar $(docker create " + asset_name + ":latest)"]
     else:
-        commands = ["docker export --output=" + asset_name + ".tar $(docker create " + args.image_uri + ")"]
+        commands = ["docker export --output=" + asset_name + ".tar $(docker create " + args.container_image_uri + ")"]
     for cmd in commands:
         print(cmd)
         return_code, out = execute([cmd], runtime_print_output=True)
@@ -967,18 +967,18 @@ def main(passed_args=None):
     create_fs_parser.set_defaults(func=create_fs)
 
     build_parser = subparsers.add_parser("build", help="To be deprecated, used to build the package. Same as build-container command")
-    build_parser.add_argument("--asset-name",  required=True, help="Name of the package")
+    build_parser.add_argument("--container-asset-name",  required=True, help="Name of the package")
     build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
     build_parser.set_defaults(func=build)
 
     build_parser = subparsers.add_parser("build-container", help="Build the package")
-    build_parser.add_argument("--asset-name",  required=True, help="Name of the package")
+    build_parser.add_argument("--container-asset-name",  required=True, help="Name of the package")
     build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
     build_parser.set_defaults(func=build)
 
     export_parser = subparsers.add_parser("export-container", help="Export a pre-built docker container to your package")
-    export_parser.add_argument("--asset-name",  required=True, help="Name of the package")
-    export_parser.add_argument("--image-uri",  required=True, help="Uri of the Docker Image")
+    export_parser.add_argument("--container-asset-name",  required=True, help="Name of the package")
+    export_parser.add_argument("--container-image-uri",  required=True, help="Uri of the Docker Image")
     export_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
     export_parser.set_defaults(func=export)
 
