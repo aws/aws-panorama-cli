@@ -7,32 +7,25 @@ The purpose of this package is to provide a CLI tool to facilitate Panorama deve
 You will need Docker and AWS CLI installed on your machine.
 Docker is required for building a package and AWS CLI is needed for downloading a model from S3 and packaging the application to Panorama Cloud.
 
-After downloading both of these, since panorama service is not public yet, we have to setup the CLI for that as well. Follow the steps below for that to setup the CLI with Gamma as endpoint.
-
-1. Download the [model/normal.json](https://amazon.awsapps.com/workdocs/index.html#/document/820db0cf75d55a1e604697d194ca929001dd7fcd27040abaf80836cd016898b1) file from artifacts under OmniCloudServiceLambdaModel as OmniCloudServiceLambda.api.json file.
-
-2. Run the following command use IAD gamma endpoint:
-```Shell
-sed -i.bak  's-requestUri":"/-requestUri":"/gamma/-g; s/endpointPrefix":"panorama/endpointPrefix":"avvngkyyje.execute-api/g'  OmniCloudServiceLambda.api.json
-```
-or this one for PDX Gamma instead:
-```Shell
-sed -i.bak 's-requestUri":"/-requestUri":"/gamma/-g; s/endpointPrefix":"panorama/endpointPrefix":"6m0zzkt7pf.execute-api/g' OmniCloudServiceLambda.api.json
-```
-or skip this step entirely if you want to use the Prod endpoint instead.
-
-3.  Configure cli setup locally:
-```Shell
-aws configure add-model --service-model file://OmniCloudServiceLambda.api.json --service-name panorama
-```
-
-Since our PanoramaSDK image is not public yet, you might also face permission issues when you're trying the build command listed below. Reachout to prannoyp@ for getting access to the image.
-
 ## Setup
 
 ```Shell
 $ git clone https://github.com/aws/aws-panorama-cli
 $ sudo ln -s <absolute_path_to_cloned_repo>/src/panorama-cli /usr/local/bin/panorama-cli
+```
+
+Since Panorama service is not public yet, we have to setup the CLI for that as well. Follow the steps below for that to setup the CLI with PDX Gamma as endpoint.
+
+Panorama currently supports PDX, IAD, DUB and YUL for regions.
+
+```Shell
+$ panorama-cli setup-panorama-service-cli --region PDX --stage Gamma
+```
+
+If you want to use the PDX Prod endpoint instead, you can use pass that as the stage
+
+```Shell
+$ panorama-cli setup-panorama-service-cli --region PDX --stage Prod
 ```
 
 ## Commands

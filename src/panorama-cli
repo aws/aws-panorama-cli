@@ -869,30 +869,36 @@ def deploy_package_on_device():
 def setup_panorama_service_cli():
     api_json_path = os.path.join(os.getcwd(), "OmniCloudServiceLambda.api.json")
     shutil.copy(os.path.join(CLI_DIR, SERVICE_CLI_APIS), api_json_path)
-    if args.region == "PDX":
-        if args.stage == "Gamma":
-            region_endpoint = "6m0zzkt7pf.execute-api"
-            stage_endpoint = "/gamma"
+    if args.stage != "Prod":       
+        if args.region == "PDX":
+            if args.stage == "Gamma":
+                region_endpoint = "6m0zzkt7pf.execute-api"
+                stage_endpoint = "/gamma"
+            else:
+                print("Stage " + args.stage + " not supported yet for region " + args.region)
+        elif args.region == "IAD":
+            if args.stage == "Beta":
+                region_endpoint = "lt21r4eqg0.execute-api"
+                stage_endpoint = "/beta"
+            elif args.stage == "Gamma":
+                region_endpoint = "avvngkyyje.execute-api"
+                stage_endpoint = "/gamma"
+            else:
+                print("Stage " + args.stage + " not supported yet for region " + args.region)
+        elif args.region == "YUL":
+            if args.stage == "Gamma":
+                region_endpoint = "a6chrjqeji.execute-api"
+                stage_endpoint = "/gamma"
+            else:
+                print("Stage " + args.stage + " not supported yet for region " + args.region)
+        elif args.region == "DUB":
+            if args.stage == "Gamma":
+                region_endpoint = "6t8i4o6sf0.execute-api"
+                stage_endpoint = "/gamma"
+            else:
+                print("Stage " + args.stage + " not supported yet for region " + args.region)
         else:
-            print("Stage " + args.stage + " not supported yet for region " + args.region)
-    elif args.region == "IAD":
-        if args.stage == "Beta":
-            region_endpoint = "lt21r4eqg0.execute-api"
-            stage_endpoint = "/beta"
-        elif args.stage == "Gamma":
-            region_endpoint = "avvngkyyje.execute-api"
-            stage_endpoint = "/gamma"
-        else:
-            print("Stage " + args.stage + " not supported yet for region " + args.region)
-    elif args.region == "YUL":
-        if args.stage == "Gamma":
-            region_endpoint = "a6chrjqeji.execute-api"
-            stage_endpoint = "/gamma"
-        else:
-            print("Stage " + args.stage + " not supported yet for region " + args.region)
-    else:
-        print("Region " + args.region + " not yet supported")
-    if args.stage != "Prod":
+            print("Region " + args.region + " not yet supported")
         sed_command = "sed -i.bak  's-requestUri\":\"/-requestUri\":\"" + stage_endpoint + "/-g; s/endpointPrefix\":\"panorama/endpointPrefix\":\""+ region_endpoint + "/g'  OmniCloudServiceLambda.api.json"
         status, output = execute([sed_command], runtime_print_output=True)
         if status != 0:
@@ -929,7 +935,7 @@ def main(passed_args=None):
     download_raw_model_parser.set_defaults(func=download_raw_model)
 
     add_model_parser = subparsers.add_parser("add-raw-model", help="Add raw model artifacts")
-    add_model_parser.add_argument("--asset-name", required=True, help="Name for model being downloaded")
+    add_model_parser.add_argument("--model-asset-name", required=True, help="Name for model being downloaded")
     add_model_group = add_model_parser.add_mutually_exclusive_group(required=True)
     add_model_group.add_argument("--model-s3-uri", help="S3 URI of the raw model")
     add_model_group.add_argument("--model-local-path", help="Local path of the raw model")
@@ -960,7 +966,7 @@ def main(passed_args=None):
     create_fs_parser.add_argument('-ext4fs', action='store_true')
     create_fs_parser.set_defaults(func=create_fs)
 
-    build_parser = subparsers.add_parser("build", help="To be deprecated, used to build the package. Same as build-container-package command")
+    build_parser = subparsers.add_parser("build", help="To be deprecated, used to build the package. Same as build-container command")
     build_parser.add_argument("--asset-name",  required=True, help="Name of the package")
     build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
     build_parser.set_defaults(func=build)
