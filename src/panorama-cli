@@ -820,7 +820,6 @@ def import_application():
         old_account_id = package.split('-')[0]
         new_package = package.replace(old_account_id, account_id)
         new_package_path = os.path.join(packages_dir, new_package)
-        print(curr_package_path, new_package_path)
         shutil.move(curr_package_path, new_package_path)
     
     graphs_path = os.path.join(os.getcwd(), "graphs")
@@ -839,6 +838,7 @@ def import_application():
         node["interface"] = node["interface"].replace(old_account_id, account_id)
     with open(graph_json_path, "w") as f:
         json.dump(graph_json, f, indent=4)
+    print("Sucessfully imported application")
     
 #Sideloading Code
 device_location = 'mht@10.92.200.61:/data/app_sideload'
