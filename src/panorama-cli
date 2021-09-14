@@ -899,6 +899,21 @@ def setup_panorama_service_cli():
                 print("Stage " + args.stage + " not supported yet for region " + args.region)
         else:
             print("Region " + args.region + " not yet supported")
+            return
+        sed_command = "sed -i.bak  's-requestUri\":\"/-requestUri\":\"" + stage_endpoint + "/-g; s/endpointPrefix\":\"panorama/endpointPrefix\":\""+ region_endpoint + "/g'  OmniCloudServiceLambda.api.json"
+        status, output = execute([sed_command], runtime_print_output=True)
+        if status != 0:
+            throw_error(status, output, 'Error running ' + sed_command)
+    else:
+        if args.region == "YUL":
+            region_endpoint = "oq9bqx6t7i.execute-api"
+            stage_endpoint = "/prod"
+        elif args.region == "DUB":
+            region_endpoint = "3l47wpqju8.execute-api"
+            stage_endpoint = "/prod"
+        else:
+            print("Region " + args.region + " not yet supported")
+            return
         sed_command = "sed -i.bak  's-requestUri\":\"/-requestUri\":\"" + stage_endpoint + "/-g; s/endpointPrefix\":\"panorama/endpointPrefix\":\""+ region_endpoint + "/g'  OmniCloudServiceLambda.api.json"
         status, output = execute([sed_command], runtime_print_output=True)
         if status != 0:
