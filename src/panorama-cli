@@ -391,12 +391,24 @@ def build_package(docker_build=True):
         asset_template["implementations"][0]["descriptorUri"] = descriptorUri
     
     package_json_path = os.path.join(args.package_path, "package.json")
+    assets_dir = os.path.join(os.getcwd(), 'assets')
     with open(package_json_path, "r+") as f:
         package_json = json.load(f)
         assets = [asset_template]
         for asset in package_json["nodePackage"]["assets"]:
             if asset["name"] == asset_name:
                 print("Updating an existing asset with the same name")
+                for implementation in asset["implementations"]:
+                    asset_uri = implementation["assetUri"]
+                    descriptor_uri = implementation["descriptorUri"]
+                    if asset_uri != image_name:
+                        print("Deleting old asset " + asset_uri)
+                        asset_path = os.path.join(assets_dir, asset_uri)
+                        os.remove(asset_path)
+                    if descriptor_uri != descriptorUri:
+                        print("Deleting old descriptor " + descriptor_uri)
+                        descriptor_path = os.path.join(assets_dir, descriptor_uri)
+                        os.remove(descriptor_path)
             else:
                 assets.append(asset)
         package_json["nodePackage"]["assets"] = assets
