@@ -745,6 +745,7 @@ def package_application():
         package_list = list(map(os.path.basename, package_dirs))
     else:
         package_list = [a for a in os.listdir(packages_dir) if os.path.isdir(os.path.join(packages_dir, a))]
+    registered_packages = {}
     for package in package_list:
         package_path = os.path.join(packages_dir, package)
         if len(package.split('-')) < 3:
@@ -783,6 +784,7 @@ def package_application():
             patch_version = package_version_info["PatchVersion"]
             if patch_version == package_json_hash:
                 print("Patch Version " + patch_version + " already registered, ignoring upload")
+                registered_packages[package_id] = {"package-version":package_version, "patch-version":patch_version, "package-name":package_name}
                 continue
             else:
                 print("Patch version for the package " + package_json_hash)
@@ -818,7 +820,29 @@ def package_application():
         status, output = execute(["aws panorama register-package-version --package-id " + package_info["PackageId"] + " --package-version " + package_version + " --patch-version " + package_json_hash + " --mark-latest"], runtime_print_output=True)
         if status != 0:
             throw_error(status, output, 'Error registering package json with Panorama')
-        print("Registered " + package_name + " with patch version " + package_json_hash)
+        print("Called register package version for " + package_name + " with patch version " + package_json_hash)
+        registered_packages[package_id] = {"package-version":package_version, "patch-version":package_json_hash, "package-name":package_name}
+    for package_id in registered_packages:
+        pending = True
+        while pending:
+            status, output = execute(["aws panorama describe-package-version --package-id " + package_id + " --package-version " + registered_packages[package_id]["package-version"] + " --patch-version " + registered_packages[package_id]["patch-version"]])
+            if status != 0:
+                throw_error(status, output, "Error while checking register package version status for " + registered_packages[package_id]["package-name"] + " with patch version " + registered_packages[package_id]["patch-version"])
+            else:
+                package_version_info = json.loads(output)
+                if package_version_info["Status"] == "REGISTER_COMPLETED":
+                    print("Register patch version complete for " + registered_packages[package_id]["package-name"] + " with patch version " + registered_packages[package_id]["patch-version"])
+                    pending = False
+                    continue
+                elif package_version_info["Status"] == "REGISTER_PENDING":
+                    print("Waiting for register package version to finish for " + registered_packages[package_id]["package-name"])
+                elif package_version_info["Status"] == "FAILED":
+                    print(package_version_info["StatusDescription"])
+                    print("Register patch version failed for " + registered_packages[package_id]["package-name"] + " with patch version " + registered_packages[package_id]["patch-version"])
+                    print("Fix the error and run panorama-cli package-application again")
+            time.sleep(30)
+    print("All packages uploaded and registered successfully")
+    
 
 @verify_cwd_is_project_root
 def import_application():
@@ -916,16 +940,13 @@ def setup_panorama_service_cli():
         status, output = execute([sed_command], runtime_print_output=True)
         if status != 0:
             throw_error(status, output, 'Error running ' + sed_command)
-    else:
+    elif args.region != "PDX" and args.region != "IAD":
         if args.region == "YUL":
             region_endpoint = "oq9bqx6t7i.execute-api"
             stage_endpoint = "/prod"
         elif args.region == "DUB":
             region_endpoint = "3l47wpqju8.execute-api"
             stage_endpoint = "/prod"
-        else:
-            print("Region " + args.region + " not yet supported")
-            return
         sed_command = "sed -i.bak  's-requestUri\":\"/-requestUri\":\"" + stage_endpoint + "/-g; s/endpointPrefix\":\"panorama/endpointPrefix\":\""+ region_endpoint + "/g'  OmniCloudServiceLambda.api.json"
         status, output = execute([sed_command], runtime_print_output=True)
         if status != 0:
@@ -939,7 +960,7 @@ def setup_panorama_service_cli():
     
 def main(passed_args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", action='version', version='%(prog)s 0.6.0', help="Version of panorama-cli")
+    parser.add_argument("--version", action='version', version='%(prog)s 0.6.1', help="Version of panorama-cli")
     subparsers = parser.add_subparsers()
 
     init_project_parser = subparsers.add_parser("init-project", help="Initializes and creates the directory structure for the project")
