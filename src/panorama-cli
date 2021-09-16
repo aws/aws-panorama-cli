@@ -839,7 +839,7 @@ def package_application():
                 elif package_version_info["Status"] == "FAILED":
                     print(package_version_info["StatusDescription"])
                     print("Register patch version failed for " + registered_packages[package_id]["package-name"] + " with patch version " + registered_packages[package_id]["patch-version"])
-                    print("Fix the error and run panorama-cli package-application again")
+                    sys.exit("Fix the error and run panorama-cli package-application again")
             time.sleep(30)
     print("All packages uploaded and registered successfully")
     
