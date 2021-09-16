@@ -345,7 +345,7 @@ def build_package(docker_build=True):
         os.remove(asset_path)
     
     if docker_build:
-        commands = ["TMPDIR=$(pwd) docker build -t " + asset_name + " " + args.package_path, "docker export --output=" + asset_name + ".tar $(docker create " + asset_name + ":latest)"]
+        commands = ["TMPDIR=$(pwd) docker build -t " + asset_name + " " + args.package_path + " --pull", "docker export --output=" + asset_name + ".tar $(docker create " + asset_name + ":latest)"]
     else:
         commands = ["docker export --output=" + asset_name + ".tar $(docker create " + args.container_image_uri + ")"]
     for cmd in commands:
