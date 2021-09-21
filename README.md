@@ -78,7 +78,7 @@ At this point, the application structure looks as follows.
 `graph.json` under `graphs` directory lists down all the packages, nodes and edges in this application. Nodes and Edges are the way to define an application graph in Panorama.
 `package.json` in each package has details about the package and the assets it uses. Interface definitions for the package need to be defined in this as well.
 Model package `call-node` has a `descriptor.json` which needs to have the metadata required for compiling the model. More about this in the models section.
-In `people_counter` package which is the default i.e container type, all the implementation related files go into the `src` directory and `descriptor.json` has details about which command and file to use when the container is launched.
+In `people_counter` package which is the default i.e container type, all the implementation related files go into the `src` directory and `descriptor.json` has details about which command and file to use when the container is launched. More about container package management later.
 `assets` directory is where all the assets reside. Developer is not expected to make any changes in this directory.
 
 ```Shell
@@ -220,3 +220,51 @@ $ panorama-cli package-application
 #### Deploying the application
 
 After packaging the application, you can now use the graph.json from the package to start a deployment from the cloud!
+
+
+### Panorama Application Concepts
+
+#### Container Package Basics
+
+##### Handling implementation related files
+
+This is a directory tree of how an example container package. All the implementation related files for this package go into the `src` directory. In this package, `people_counter_main.py` has the logic for processing the frames from the camera and `people_counter_main.py` depends on `blueprint.csv` and `requirements.json` for some of its functionality and therefore those are under the `src` directory as well. If the application requires multiple `.py` files then all those will be under the `src` directory as well.
+
+```Shell
+accountXYZ-people_counter-1.0
+├── Dockerfile
+├── descriptor.json
+├── package.json
+└── src
+    ├── blueprint.csv
+    ├── people_counter_main.py
+    └── requirements.json
+```
+
+Let's now take a look at the Dockerfile provided as part of the package
+
+```dockerfile
+FROM 445637485868.dkr.ecr.us-west-2.amazonaws.com/panorama-application
+COPY src /panorama
+```
+
+In the second line, we are basically copying all the contents of the `src` directory into the `/panorama` directory of the Docker image. Therefore, its important to note that when `people_counter_main.py` accesses other files which were originally part of the `src` directory, they are actually under `/panorama` when the application is running on the Panorama Appliance.
+
+##### Handling dynamic data
+
+Since all the containers run in read-only mode on the Panorama Appliance, its not possible to create new files at all paths. To facilitate this, Panorama base image(i.e first line in Dockerfile) has two directories `/panorama/logs` and `/panorama/storage` which are empty. During runtime, these directories are mounted to the device file system and allow the developer to store new files and data dynamically.
+
+`/panorama/logs` is the location to store all the logs and all files created in the directory are uploaded to CloudWatch for the account which was used to provision the device.
+`/panorama/storage` is a good location to store all the dynamic info that the application might need.
+When the device re-starts, all the memory locations are deleted but the data under these two directories is persistant and therefore should contain all the context for the application to function from where it left off on a reboot.
+
+##### Installing dependencies
+
+The image(`445637485868.dkr.ecr.us-west-2.amazonaws.com/panorama-application`) provided by Panorama is a ARMv8 Ubuntu image with just Panorama base software installed so all the additional dependencies for the application must be installed separately. For example, add the following line to the Dockerfile to install OpenCV and boto3.
+
+```dockerfile
+FROM 445637485868.dkr.ecr.us-west-2.amazonaws.com/panorama-application
+COPY src /panorama
+RUN pip3 install opencv-python boto3
+```
+
