@@ -196,7 +196,7 @@ Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have th
 ```
 descriptor.json basically provides the path for the command that needs to run and the path to the file that needs to be executed once the container starts.
 
-(Temporary) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and are still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 500245141608.dkr.ecr.us-west-2.amazonaws.com`
+(Temporary) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and are still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 726743625486.dkr.ecr.us-west-2.amazonaws.com`
 
 We can now build the package using the following command to create a container asset.
 ```Shell
@@ -244,7 +244,7 @@ accountXYZ-people_counter-1.0
 Let's now take a look at the Dockerfile provided as part of the package
 
 ```dockerfile
-FROM 445637485868.dkr.ecr.us-west-2.amazonaws.com/panorama-application
+FROM 726743625486.dkr.ecr.us-west-2.amazonaws.com/panorama-application
 COPY src /panorama
 ```
 
@@ -256,14 +256,14 @@ Since all the containers run in read-only mode on the Panorama Appliance, its no
 
 `/panorama/logs` is the location to store all the logs and all files created in the directory are uploaded to CloudWatch for the account which was used to provision the device.
 `/panorama/storage` is a good location to store all the dynamic info that the application might need.
-When the device re-starts, all the memory locations are deleted but the data under these two directories is persistant and therefore should contain all the context for the application to function from where it left off on a reboot.
+When the device re-starts, all the memory locations are deleted but the data under these two directories is persistent and therefore should contain all the context for the application to function from where it left off on a reboot.
 
 ##### Installing dependencies
 
-The image(`445637485868.dkr.ecr.us-west-2.amazonaws.com/panorama-application`) provided by Panorama is a ARMv8 Ubuntu image with just Panorama base software installed so all the additional dependencies for the application must be installed separately. For example, add the following line to the Dockerfile to install OpenCV and boto3.
+The image(`726743625486.dkr.ecr.us-west-2.amazonaws.com/panorama-application`) provided by Panorama is a ARMv8 Ubuntu image with just Panorama base software installed so all the additional dependencies for the application must be installed separately. For example, add the following line to the Dockerfile to install OpenCV and boto3.
 
 ```dockerfile
-FROM 445637485868.dkr.ecr.us-west-2.amazonaws.com/panorama-application
+FROM 726743625486.dkr.ecr.us-west-2.amazonaws.com/panorama-application
 COPY src /panorama
 RUN pip3 install opencv-python boto3
 ```
