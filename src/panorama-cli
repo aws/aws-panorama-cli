@@ -235,7 +235,7 @@ def get_compilation_details():
 
 
 def get_compilation_job_response(job_id):
-    cmd = 'aws sagemaker describe-compilation-job --compilation-job-name ' + job_id
+    cmd = 'aws sagemaker describe-compilation-job --output json --compilation-job-name ' + job_id
     return_code, out = execute(cmd)
     if return_code != 0:
         print(out)
@@ -756,9 +756,9 @@ def package_application():
         print("Uploading package " + package_name)
     
         #Check if the package already exists
-        status, output = execute(['aws panorama describe-package --package-id packageName/' + package_name])
+        status, output = execute(['aws panorama describe-package --output json --package-id packageName/' + package_name])
         if status != 0: #Create new package if the package doesn't exist
-            status, output = execute(['aws panorama create-package --package-name ' + package_name])
+            status, output = execute(['aws panorama create-package --output json --package-name ' + package_name])
             if status != 0:
                 throw_error(status, output, 'Error creating package ' + package + ' on Panorama')      
         package_info = json.loads(output)
@@ -776,7 +776,7 @@ def package_application():
                 package_version = package_json["nodePackage"]["version"]  
         
         #Ignore upload if the same patch version of a package is already registered
-        status, output = execute(['aws panorama describe-package-version --package-id ' + package_id + ' --package-version ' + package_version])
+        status, output = execute(['aws panorama describe-package-version --output json --package-id ' + package_id + ' --package-version ' + package_version])
         if status != 0:
             print("Package Version " + package_version + " is not yet registered, preparing upload")
         else:
@@ -817,7 +817,7 @@ def package_application():
             status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + package_json_path + " --acl bucket-owner-full-control"], runtime_print_output=True)
             if status != 0:
                 throw_error(status, output, 'Error uploading package json to S3')
-        status, output = execute(["aws panorama register-package-version --package-id " + package_info["PackageId"] + " --package-version " + package_version + " --patch-version " + package_json_hash + " --mark-latest"], runtime_print_output=True)
+        status, output = execute(["aws panorama register-package-version --output json --package-id " + package_info["PackageId"] + " --package-version " + package_version + " --patch-version " + package_json_hash + " --mark-latest"], runtime_print_output=True)
         if status != 0:
             throw_error(status, output, 'Error registering package json with Panorama')
         print("Called register package version for " + package_name + " with patch version " + package_json_hash)
@@ -825,7 +825,7 @@ def package_application():
     for package_id in registered_packages:
         pending = True
         while pending:
-            status, output = execute(["aws panorama describe-package-version --package-id " + package_id + " --package-version " + registered_packages[package_id]["package-version"] + " --patch-version " + registered_packages[package_id]["patch-version"]])
+            status, output = execute(["aws panorama describe-package-version --output json --package-id " + package_id + " --package-version " + registered_packages[package_id]["package-version"] + " --patch-version " + registered_packages[package_id]["patch-version"]])
             if status != 0:
                 throw_error(status, output, "Error while checking register package version status for " + registered_packages[package_id]["package-name"] + " with patch version " + registered_packages[package_id]["patch-version"])
             else:
