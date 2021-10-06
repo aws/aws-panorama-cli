@@ -1,0 +1,17 @@
+{
+    "name": "",
+    "category": "",
+    "asset": "",
+    "inputs": [
+        {
+            "name": "video_in",
+            "type": "media"
+        }
+    ],
+    "outputs": [
+        {
+            "name": "video_out",
+            "type": "media"
+        }
+    ]
+}
