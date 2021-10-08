@@ -162,9 +162,9 @@ If you want to download the model from S3 and then add it pass `--model-s3-uri` 
 `--packages-path` can be used to pass all the packges where this model is being used and after downloading the model, DX CLI automatically adds the downloaded model into assets section of all the specified packages.
 
 ```Shell
-$ panorama-cli add-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://dx-cli-testing/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call_node-1.0/descriptor.json --packages-path packages/accountXYZ-call_node-1.0
+$ panorama-cli add-raw-model --model-asset-name callable_squeezenet --model-s3-uri s3://<s3_bucket_path>/raw_models/squeezenet1_0.tar.gz --descriptor-path packages/accountXYZ-call_node-1.0/descriptor.json --packages-path packages/accountXYZ-call_node-1.0
 download: s3://<s3_bucket_path>/squeezenet1_0.tar.gz to assets/callable_squeezenet.tar.gz
-Successfully downloaded compiled artifacts (s3://<s3_bucket_path>squeezenet1_0.tar.gz) to ./assets/callable_squeezenet.tar.gz
+Successfully downloaded compiled artifacts (s3://<s3_bucket_path>/squeezenet1_0.tar.gz) to ./assets/callable_squeezenet.tar.gz
 {
     "name": "callable_squeezenet",
     "implementations": [
@@ -177,10 +177,12 @@ Successfully downloaded compiled artifacts (s3://<s3_bucket_path>squeezenet1_0.t
 }
 ```
 
+If you make any updates to your model or `desriptor.json` file after running this command, just re-run the command with the same `--model-asset-name` and the old asset will be updated with the new assets.
+
 #### Writing code and building a container
 
-people_counter package has the core logic to count the number of people, so let's create a file called `people_counter_main.py` at `packages/accountXYZ-people-counter-package-1.0/src` and add the relevant code to that.
-Edit `packages/accountXYZ-people-counter-package-1.0/descriptor.json` to have the following content
+people_counter package has the core logic to count the number of people, so let's create a file called `people_counter_main.py` at `packages/accountXYZ-people_counter-1.0/src` and add the relevant code to that.
+Edit `packages/accountXYZ-people_counter-1.0/descriptor.json` to have the following content
 ```JSON
 {
     "runtimeDescriptor":
@@ -204,12 +206,117 @@ We can now build the package using the following command to create a container a
 $ panorama-cli build-container --container-asset-name people_counter_container_binary --package-path packages/accountXYZ-people-counter-package-1.0
 ```
 
+If you make any updates to your code or `desriptor.json` or `Dockerfile` file after building a container, just re-run the command with the same `--container-asset-name` and the old assets will be updated with the new assets.
+
 #### Defining interfaces and app graph
 
-Next step would be to edit all the package.json's and define interfaces for all the packages.
-After that, you can edit the graph.json under `graphs` directory to define nodes from the above defined interfaces and add edges between them.
-Refer to the example_app provided in this repository to better understand the changes that are needed.
-example_app provided in this repository doesn't have the downloaded/built assets in it. You can find the entire application with all the assets at https://amazon.awsapps.com/workdocs/index.html#/document/2a82b1fb07a92a33c3eb6654e3e747a22440d051d4aa4d3b652859e04290f204
+Let's take a look at how the `package.json` looks for people_counter package after running build-container
+
+```JSON
+{
+    "nodePackage": {
+        "envelopeVersion": "2021-01-01",
+        "name": "people_counter",
+        "version": "1.0",
+        "description": "Default description for package people_counter",
+        "assets": [
+            {
+                "name": "people_counter_container_binary",
+                "implementations": [
+                    {
+                        "type": "container",
+                        "assetUri": "4e3a68e5fc0be9b7f3d8540a0a7d9855d6baae0b6dfc280b68431fd90b1e2c90.tar.gz",
+                        "descriptorUri": "15545511b51d390a0a252537a41719498efd04f707deae17c6618d544e40e996.json"
+                    }
+                ]
+            }
+        ],
+        "interfaces": [
+            {
+                "name": "people_counter_container_binary_interface",
+                "category": "business_logic",
+                "asset": "people_counter_container_binary",
+                "inputs": [
+                    {
+                        "name": "video_in",
+                        "type": "media"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "video_out",
+                        "type": "media"
+                    }
+                ]
+            }
+        ]
+    }
+}
+```
+
+A new asset named `people_counter_container_binary` has been added under assets and a new interface named `people_counter_container_binary_interface` has been defined. In Panorama, interfaces are a way to programtically interact with a package and each interface is linked to an asset. For example, `people_counter_container_binary_interface` has an asset field which points to `people_counter_container_binary`. That means that we are defining an interface to that asset. In this case, since our asset is a container with your code in it, all the inputs your code expects can be part of the inputs under interfaces. In this example, the code just expects one input which is a video stream. If output of your code needs to be consumed by another asset, that can be part of the ouputs. Similarly, a new interface was added to the call-node package when we can `add-raw-model` command. In that case, interface was linked to the model asset which we added using that command.
+
+At this point, `graph.json` under the graphs directory looks like this
+
+```JSON
+{
+    "nodeGraph": {
+        "envelopeVersion": "2021-01-01",
+        "packages": [
+            {
+                "name": "accountXYZ::people_counter",
+                "version": "1.0"
+            },
+            {
+                "name": "accountXYZ::call_node",
+                "version": "1.0"
+            },
+            {
+                "name": "panorama::abstract_rtsp_media_source",
+                "version": "1.0"
+            },
+        ],
+        "nodes": [
+            {
+                "name": "front_door_camera",
+                "interface": "panorama::abstract_rtsp_media_source.rtsp_v1_interface",
+                "overridable": true,
+                "launch": "onAppStart",
+                "decorator": {
+                    "title": "Camera front_door_camera",
+                    "description": "Default description for camera front_door_camera"
+                }
+            },
+            {
+                "name": "callable_squeezenet",
+                "interface": "accountXYZ::call_node.callable_squeezenet_interface"
+            },
+            {
+                "name": "people_counter_container_binary_node",
+                "interface": "accountXYZ::people_counter.people_counter_container_binary_interface",
+                "overridable": false,
+                "launch": "onAppStart"
+            }
+        ],
+        "edges": []
+    }
+}
+```
+
+`packages` section here has all the packages that are part of this application and we can see that `nodes` section has some nodes defined already. To be able to use any package, we need to define a corresponding nodes in the `graph.json` for all the interfaces that are part of the package. `people_counter_container_binary_node` node is linked to `people_counter_container_binary_interface` interface from people_counter package which we just looked at and similarly `callable_squeezenet` node is linked to `callable_squeezenet_interface` interface from the call_node package. We already discussed the `front_door_camera` node in (setting up cameras section)[#setting-up-cameras-for-panorama]
+
+
+Next thing we will do is set up the edges for the application graph. `people_counter_container_binary_interface` had one input `video_in` as part of the interface definition and that was the video input to the code in that package. We can connect that input to the camera node's output by adding the following edge under the `edges` section.
+
+```JSON
+"edges": [
+            {
+                "producer": "front_door_camera_node.video_out",
+                "consumer": "people_counter_container_binary_node.video_in"
+            },
+        ]
+    }
+```
 
 #### Registering and Uploading all local packages in the Cloud
 
