@@ -303,7 +303,7 @@ At this point, `graph.json` under the graphs directory looks like this
 }
 ```
 
-`packages` section here has all the packages that are part of this application and we can see that `nodes` section has some nodes defined already. To be able to use any package, we need to define a corresponding nodes in the `graph.json` for all the interfaces that are part of the package. `people_counter_container_binary_node` node is linked to `people_counter_container_binary_interface` interface from people_counter package which we just looked at and similarly `callable_squeezenet` node is linked to `callable_squeezenet_interface` interface from the call_node package. We already discussed the `front_door_camera` node in (setting up cameras section)[#setting-up-cameras-for-panorama]
+`packages` section here has all the packages that are part of this application and we can see that `nodes` section has some nodes defined already. To be able to use any package, we need to define a corresponding nodes in the `graph.json` for all the interfaces that are part of the package. `people_counter_container_binary_node` node is linked to `people_counter_container_binary_interface` interface from people_counter package which we just looked at and similarly `callable_squeezenet` node is linked to `callable_squeezenet_interface` interface from the call_node package. We already discussed the `front_door_camera` node in [setting up cameras section](#setting-up-cameras-for-panorama)
 
 
 Next thing we will do is set up the edges for the application graph. `people_counter_container_binary_interface` had one input `video_in` as part of the interface definition and that was the video input to the code in that package. We can connect that input to the camera node's output by adding the following edge under the `edges` section.
@@ -360,10 +360,10 @@ In the second line, we are basically copying all the contents of the `src` direc
 
 ##### Handling dynamic data
 
-Since all the containers run in read-only mode on the Panorama Appliance, its not possible to create new files at all paths. To facilitate this, Panorama base image(i.e first line in Dockerfile) has two directories `/panorama/logs` and `/panorama/storage` which are empty. During runtime, these directories are mounted to the device file system and allow the developer to store new files and data dynamically.
+Since all the containers run in read-only mode on the Panorama Appliance, its not possible to create new files at all paths. To facilitate this, Panorama base image(i.e first line in Dockerfile) has two directories `/opt/aws/panorama/logs` and `/opt/aws/panorama/storage` which are empty. During runtime, these directories are mounted to the device file system and allow the developer to store new files and data dynamically.
 
-`/panorama/logs` is the location to store all the logs and all files created in the directory are uploaded to CloudWatch for the account which was used to provision the device.
-`/panorama/storage` is a good location to store all the dynamic info that the application might need.
+`/opt/aws/panorama/logs` is the location to store all the logs and all files created in the directory are uploaded to CloudWatch for the account which was used to provision the device.
+`/opt/aws/panorama/storage` is a good location to store all the dynamic info that the application might need.
 When the device re-starts, all the memory locations are deleted but the data under these two directories is persistent and therefore should contain all the context for the application to function from where it left off on a reboot.
 
 ##### Installing dependencies
