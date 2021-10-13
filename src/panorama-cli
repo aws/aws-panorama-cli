@@ -329,6 +329,9 @@ def get_absolute_path(path):
         absolute_path = os.path.join(os.getcwd(), path)
     return absolute_path
 
+def get_path_with_espace_characters(path):
+    return path.replace(" ", "\\ ").replace("?", "\\?").replace("&", "\\&").replace("(", "\\(").replace(")", "\\)").replace("*", "\\*").replace("<", "\\<").replace(">", "\\>")
+
 @verify_cwd_is_project_root
 def get_graph_json_path():
     graphs_path = os.path.join(os.getcwd(), "graphs")
@@ -439,11 +442,13 @@ def build_package(docker_build=True):
                     if asset_uri != image_name:
                         print("Deleting old asset " + asset_uri)
                         asset_path = os.path.join(assets_dir, asset_uri)
-                        os.remove(asset_path)
+                        if os.path.exists(asset_path):
+                            os.remove(asset_path)
                     if old_descriptor_uri != descriptor_uri:
                         print("Deleting old descriptor " + old_descriptor_uri)
                         descriptor_path = os.path.join(assets_dir, old_descriptor_uri)
-                        os.remove(descriptor_path)
+                        if os.path.exists(descriptor_path):
+                            os.remove(descriptor_path)
             else:
                 assets.append(asset)
         package_json["nodePackage"]["assets"] = assets
@@ -586,11 +591,13 @@ def add_raw_model():
                             if asset_uri != model_tar_name:
                                 print("Deleting old asset " + asset_uri)
                                 asset_path = os.path.join(assets_dir, asset_uri)
-                                os.remove(asset_path)
+                                if os.path.exists(asset_path):
+                                    os.remove(asset_path)
                             if old_descriptor_uri != descriptor_uri:
                                 print("Deleting old descriptor " + old_descriptor_uri)
                                 descriptor_path = os.path.join(assets_dir, old_descriptor_uri)
-                                os.remove(descriptor_path)
+                                if os.path.exists(descriptor_path):
+                                    os.remove(descriptor_path)
                     else:
                         assets.append(asset)
                 package_json["nodePackage"]["assets"] = assets
@@ -885,7 +892,7 @@ def package_application():
                 asset_path = os.path.join(assets_dir, asset_uri)
                 status, output = execute(["aws s3api head-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["BinaryPrefixLocation"] + "/" + asset_uri])
                 if status != 0:
-                    status, output = execute(["aws s3 cp " + asset_path + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + asset_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
+                    status, output = execute(["aws s3 cp " + get_path_with_espace_characters(asset_path) + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + asset_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
                     if status != 0:
                         throw_error(status, output, 'Error uploading package asset ' + asset_uri + ' to S3')
                 else:
@@ -895,14 +902,14 @@ def package_application():
                     descriptor_path = os.path.join(assets_dir, descriptor_uri)
                     status, output = execute(["aws s3api head-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["BinaryPrefixLocation"] + "/" + descriptor_uri])
                     if status != 0:
-                        status, output = execute(["aws s3 cp " + descriptor_path + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + descriptor_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
+                        status, output = execute(["aws s3 cp " + get_path_with_espace_characters(descriptor_path) + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + descriptor_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
                         if status != 0:
                             throw_error(status, output, 'Error uploading package descriptor ' + descriptor_uri + ' to S3')
                     else:
                         print("Descriptor " + descriptor_uri + " already exists, ignoring upload")
         status, output = execute(["aws s3api head-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json"])
         if status != 0:
-            status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + package_json_path + " --acl bucket-owner-full-control"], runtime_print_output=True)
+            status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + get_path_with_espace_characters(package_json_path) + " --acl bucket-owner-full-control"], runtime_print_output=True)
             if status != 0:
                 throw_error(status, output, 'Error uploading package json to S3')
         status, output = execute(["aws panorama register-package-version --output json --package-id " + package_info["PackageId"] + " --package-version " + package_version + " --patch-version " + package_json_hash + " --mark-latest"], runtime_print_output=True)
@@ -1050,7 +1057,7 @@ def setup_panorama_service_cli():
     
 def main(passed_args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", action='version', version='%(prog)s 0.6.4', help="Version of panorama-cli")
+    parser.add_argument("--version", action='version', version='%(prog)s 0.6.5', help="Version of panorama-cli")
     subparsers = parser.add_subparsers()
 
     init_project_parser = subparsers.add_parser("init-project", help="Initializes and creates the directory structure for the project")
