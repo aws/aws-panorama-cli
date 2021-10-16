@@ -757,10 +757,19 @@ def add_abstract_camera():
     graph_json_path = os.path.join(graphs_path, graph_dir, "graph.json")
     with open(graph_json_path, "r+") as f:
         graph_json = json.load(f)
-        graph_json["nodeGraph"]["packages"].append({
-                            "name": "panorama::abstract_rtsp_media_source",
-                            "version": "1.0"
-                        })
+        abstract_camera_exists = False
+        for package in graph_json["nodeGraph"]["packages"]:
+            if package["name"] == "panorama::abstract_rtsp_media_source" and  package["version"] == "1.0":
+                abstract_camera_exists = True
+        if not abstract_camera_exists:
+            graph_json["nodeGraph"]["packages"].append({
+                                "name": "panorama::abstract_rtsp_media_source",
+                                "version": "1.0"
+                            })
+        for node in graph_json["nodeGraph"]["nodes"]:
+            if node["name"] == args.name:
+                print("Abstract Camera " + args.name + " already exists")
+                return
         graph_json["nodeGraph"]["nodes"].append({
                             "name": args.name,
                             "interface": "panorama::abstract_rtsp_media_source.rtsp_v1_interface",
@@ -782,10 +791,19 @@ def add_data_sink():
     graph_json_path = os.path.join(graphs_path, graph_dir, "graph.json")
     with open(graph_json_path, "r+") as f:
         graph_json = json.load(f)
-        graph_json["nodeGraph"]["packages"].append({
-                            "name": "panorama::hdmi_data_sink",
-                            "version": "1.0"
-                        })
+        data_sink_exists = False
+        for package in graph_json["nodeGraph"]["packages"]:
+            if package["name"] == "panorama::hdmi_data_sink" and  package["version"] == "1.0":
+                data_sink_exists = True
+        if not data_sink_exists:
+            graph_json["nodeGraph"]["packages"].append({
+                                "name": "panorama::hdmi_data_sink",
+                                "version": "1.0"
+                            })
+        for node in graph_json["nodeGraph"]["nodes"]:
+            if node["name"] == args.name:
+                print("Data Sink " + args.name + " already exists")
+                return
         graph_json["nodeGraph"]["nodes"].append({
                             "name": args.name,
                             "interface": "panorama::hdmi_data_sink.hdmi0",
@@ -1081,7 +1099,7 @@ def setup_panorama_service_cli():
     
 def main(passed_args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", action='version', version='%(prog)s 0.6.7', help="Version of panorama-cli")
+    parser.add_argument("--version", action='version', version='%(prog)s 0.6.8', help="Version of panorama-cli")
     subparsers = parser.add_subparsers()
 
     init_project_parser = subparsers.add_parser("init-project", help="Initializes and creates the directory structure for the project")
