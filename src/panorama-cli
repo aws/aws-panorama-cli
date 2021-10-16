@@ -305,12 +305,15 @@ def get_aws_account_id():
     account_id = re.sub('[^A-Za-z0-9]+', '', output) #Removing all special characters from stdout
     return account_id
 
-def throw_error(status, error, error_message):
+def throw_error(status, error, error_message, exit=True):
     if error:
         print(error)
         if "Could not connect" in error:
             print("Network issue while connecting to the endpoint, check your connection and try again")
-    sys.exit(error_message)
+    if exit:
+        sys.exit(error_message)
+    else:
+        print(error_message)
 
 def verify_cwd_is_project_root(func):
     def cwd_check_wrapper():
@@ -841,6 +844,7 @@ def package_application():
     else:
         package_list = [a for a in os.listdir(packages_dir) if os.path.isdir(os.path.join(packages_dir, a))]
     registered_packages = {}
+    failed_packages = {}
     for package in package_list:
         package_path = os.path.join(packages_dir, package)
         if len(package.split('-')) < 3:
@@ -884,6 +888,7 @@ def package_application():
             else:
                 print("Patch version for the package " + package_json_hash)
 
+        assets_not_found = []
         for asset in package_json["nodePackage"]["assets"]:
             for implementation in asset["implementations"]:
                 if implementation["type"] == "system": #Ignore uploading system assets
@@ -894,7 +899,8 @@ def package_application():
                 if status != 0:
                     status, output = execute(["aws s3 cp " + get_path_with_espace_characters(asset_path) + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + asset_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
                     if status != 0:
-                        throw_error(status, output, 'Error uploading package asset ' + asset_uri + ' to S3')
+                        throw_error(status, output, 'Error uploading package asset ' + asset_uri + ' to S3', exit=False)
+                        assets_not_found.append(asset_uri)
                 else:
                     print("Asset " + asset_uri + " already exists, ignoring upload")
                 if "descriptorUri"  in implementation:
@@ -904,9 +910,14 @@ def package_application():
                     if status != 0:
                         status, output = execute(["aws s3 cp " + get_path_with_espace_characters(descriptor_path) + " s3://" + storage_location["Bucket"] + "/" + storage_location["BinaryPrefixLocation"] + "/" + descriptor_uri + " --acl bucket-owner-full-control"], runtime_print_output=True)
                         if status != 0:
-                            throw_error(status, output, 'Error uploading package descriptor ' + descriptor_uri + ' to S3')
+                            throw_error(status, output, 'Error uploading package descriptor ' + descriptor_uri + ' to S3', exit=False)
+                            assets_not_found.append(descriptor_uri)
                     else:
                         print("Descriptor " + descriptor_uri + " already exists, ignoring upload")
+        if len(assets_not_found) > 0:
+            print("Assets not found for package " + package_name + ". Skipping registration")
+            failed_packages[package_name] = assets_not_found
+            continue
         status, output = execute(["aws s3api head-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json"])
         if status != 0:
             status, output = execute(["aws s3api put-object --bucket " + storage_location["Bucket"] + " --key " + storage_location["ManifestPrefixLocation"] + "/" + package_version + "/" + package_json_hash + ".json --body " + get_path_with_espace_characters(package_json_path) + " --acl bucket-owner-full-control"], runtime_print_output=True)
@@ -938,7 +949,12 @@ def package_application():
                     print("Register patch version failed for " + registered_packages[package_id]["package-name"] + " with patch version " + registered_packages[package_id]["patch-version"])
                     sys.exit("Fix the error and run panorama-cli package-application again")
             time.sleep(30)
-    print("All packages uploaded and registered successfully")
+    if len(failed_packages) != 0:
+        for failed_package in failed_packages:
+            print("Assets ", failed_packages[failed_package], " not found for package " + failed_package)
+        print("Fix the errors and run panorama-cli package-application again to re-try upload for failed packages")
+    else:
+        print("All packages uploaded and registered successfully")
     
 
 @verify_cwd_is_project_root
@@ -1057,7 +1073,7 @@ def setup_panorama_service_cli():
     
 def main(passed_args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", action='version', version='%(prog)s 0.6.5', help="Version of panorama-cli")
+    parser.add_argument("--version", action='version', version='%(prog)s 0.6.6', help="Version of panorama-cli")
     subparsers = parser.add_subparsers()
 
     init_project_parser = subparsers.add_parser("init-project", help="Initializes and creates the directory structure for the project")
