@@ -1,0 +1,40 @@
+{
+    "nodePackage": {
+      "envelopeVersion": "2021-01-01",
+      "name": "data_sink_node",
+      "version": "1.0",
+      "description": "Default description for package data_sink_node",
+      "assets": [
+        {
+          "name": "sink_hdmi",
+          "implementations": [
+            {
+              "type": "system",
+              "assetUri": "sink/video/hdmi/sink_hdmi"
+            }
+          ]
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "sink_interface",
+          "category": "media_sink",
+          "asset": "sink_hdmi",
+          "inputs": [
+            {
+              "description": "Video stream input",
+              "name": "video_in",
+              "type": "media"
+            }
+          ],
+          "outputs": [
+            {
+              "description": "Video stream output",
+              "name": "video_out",
+              "type": "media"
+            }
+          ]
+        }
+      ]
+    }
+  }

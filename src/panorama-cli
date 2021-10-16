@@ -40,6 +40,7 @@ DESCRIPTOR_CONTAINER_TEMPLATE_PATH = 'resources/descriptor_container_template.js
 DESCRIPTOR_MODEL_TEMPLATE_PATH = 'resources/descriptor_model_template.json'
 DOWNLOAD_ASSET_TEMPLATE_PATH = 'resources/download_model.json'
 CAMERA_PACAKAGE_TEMPLATE_PATH='resources/camera_package.json'
+DATASINK_PACAKAGE_TEMPLATE_PATH='resources/datasink_package.json'
 BUILD_ASSET_TEMPLATE_PATH = 'resources/build_package.json'
 GRAPH_NODE_TEMPLATE_PATH = 'resources/graph_node_template.json'
 PACKAGE_INTERFACE_TEMPLATE_PATH = 'resources/package_interface_template.json'
@@ -685,7 +686,7 @@ def download_compiled_model():
 
 @verify_cwd_is_project_root
 def create_package():
-    package_types = ["Container", "Model", "Camera"]
+    package_types = ["Container", "Model", "Camera", "Datasink"]
     if args.type not in package_types:
         throw_error(1, None, "Invalid package type. Provided type " + args.type + " not in " + ' '.join(package_types))
     template_path = os.path.join(CLI_DIR, PACKAGE_SKELETON_PATH)
@@ -724,6 +725,13 @@ def create_package():
         os.remove(os.path.join(pkg_path, "Dockerfile"))
         os.remove(os.path.join(pkg_path, "descriptor.json"))
         descriptor_src_path = os.path.join(CLI_DIR, CAMERA_PACAKAGE_TEMPLATE_PATH)
+        descriptor_dst_path = os.path.join(pkg_path, "package.json")
+        shutil.copyfile(descriptor_src_path, descriptor_dst_path)
+    elif args.type == "Datasink":
+        shutil.rmtree(os.path.join(pkg_path, "src"))
+        os.remove(os.path.join(pkg_path, "Dockerfile"))
+        os.remove(os.path.join(pkg_path, "descriptor.json"))
+        descriptor_src_path = os.path.join(CLI_DIR, DATASINK_PACAKAGE_TEMPLATE_PATH)
         descriptor_dst_path = os.path.join(pkg_path, "package.json")
         shutil.copyfile(descriptor_src_path, descriptor_dst_path)
     elif args.model or args.type == "Model":
@@ -1073,7 +1081,7 @@ def setup_panorama_service_cli():
     
 def main(passed_args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", action='version', version='%(prog)s 0.6.6', help="Version of panorama-cli")
+    parser.add_argument("--version", action='version', version='%(prog)s 0.6.7', help="Version of panorama-cli")
     subparsers = parser.add_subparsers()
 
     init_project_parser = subparsers.add_parser("init-project", help="Initializes and creates the directory structure for the project")
@@ -1113,7 +1121,7 @@ def main(passed_args=None):
 
     create_package_parser = subparsers.add_parser("create-package", help="Create a new package")
     create_package_parser.add_argument("--name", required=True, help="Name of the package")
-    create_package_parser.add_argument('--type', default="Container", help="Type of the package. Model or Camera or Container(Default)")
+    create_package_parser.add_argument('--type', default="Container", help="Type of the package. Model or Camera or Datasink or Container(Default)")
     create_package_parser.add_argument("--version", default="1.0", help="Version of the package, 1.0 by default")
     create_package_parser.add_argument('-camera', action='store_true')
     create_package_parser.add_argument('-model', action='store_true')
