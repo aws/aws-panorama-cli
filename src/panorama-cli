@@ -115,6 +115,16 @@ class OutputConfig:
         res += '}\"'
         return res
 
+def json_load_decorator(json_load_func):
+    def catch_json_load_errors(f):
+        try:
+            return json_load_func(f)
+        except Exception as e:
+            print(e)
+            print("JSON formatting error in ", f.name)
+            print("Please fix the error and try again")
+            sys.exit(0)
+    return catch_json_load_errors
 
 # Utility functions
 def execute(cmd, runtime_print_output=False, logger=None):
@@ -1099,7 +1109,7 @@ def setup_panorama_service_cli():
     
 def main(passed_args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", action='version', version='%(prog)s 0.6.8', help="Version of panorama-cli")
+    parser.add_argument("--version", action='version', version='%(prog)s 0.6.9', help="Version of panorama-cli")
     subparsers = parser.add_subparsers()
 
     init_project_parser = subparsers.add_parser("init-project", help="Initializes and creates the directory structure for the project")
@@ -1201,4 +1211,5 @@ def main(passed_args=None):
     args.func()
 
 if __name__ == '__main__':
+    json.load = json_load_decorator(json.load)
     main()
