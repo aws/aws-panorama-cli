@@ -11,7 +11,10 @@ Docker is required for building a package and AWS CLI is needed for downloading 
 
 ```Shell
 $ git clone https://github.com/aws/aws-panorama-cli
-$ sudo ln -s <absolute_path_to_cloned_repo>/src/panorama-cli /usr/local/bin/panorama-cli
+$ cd aws-panorama-cli
+$ ./install.sh
+Don\'t delete this directory. Created symlink to panorama-cli in /usr/local/bin. Run git pull for updates.
+Successfully installed panorama-cli
 ```
 
 Since Panorama service is not public yet, we have to setup the CLI for that as well. Follow the steps below for that to setup the CLI with PDX Gamma as endpoint.
