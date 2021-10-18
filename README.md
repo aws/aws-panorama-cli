@@ -13,10 +13,10 @@ Docker is required for building a package and AWS CLI is needed for downloading 
 $ git clone https://github.com/aws/aws-panorama-cli
 $ cd aws-panorama-cli
 $ ./install.sh
-Don't delete this directory. Created symlink to panorama-cli in /usr/local/bin. Run git pull for updates.
+Do not delete this directory. Created symlink to panorama-cli in /usr/local/bin. Run git pull for updates.
 Successfully installed panorama-cli
 ```
-(#####Internal)
+(##### Internal)
 Since Panorama service is not public yet, we have to setup the CLI for that as well. Follow the steps below for that to setup the CLI with PDX Gamma as endpoint.
 
 Panorama currently supports PDX, IAD, DUB and YUL for regions.
@@ -191,7 +191,7 @@ Edit `packages/accountXYZ-people_counter-1.0/descriptor.json` to have the follow
 ```
 descriptor.json basically provides the path for the command that needs to run and the path to the file that needs to be executed once the container starts.
 
-(#####Internal) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and are still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 726743625486.dkr.ecr.us-west-2.amazonaws.com`
+(##### Internal) For building the container, you might need access to a private Dockerfile, reach out to prannoyp@ to get permissions. If you already have permissions and are still facing issues, run the following command to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 726743625486.dkr.ecr.us-west-2.amazonaws.com`
 If you're using an older version of Dockerfile which has 500245141608 as account id in the image name, run the following command instead to authenticate `aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 500245141608.dkr.ecr.us-west-2.amazonaws.com`
 
 We can now build the package using the following command to create a container asset.
