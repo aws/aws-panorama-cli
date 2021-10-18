@@ -48,7 +48,7 @@ $ panorama-cli <command> -h
 
 ### Deploying a sample application
 
-Link to Docs Website instructions for deploying Sample App
+Instructions for downloading and deploying a sample application can be found at https://docs.aws.amazon.com/panorama/latest/dev/gettingstarted-deploy.html
 
 ### Application creation flow example
 
