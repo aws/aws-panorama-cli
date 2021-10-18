@@ -139,68 +139,6 @@ def execute(cmd, runtime_print_output=False, logger=None):
         stdout = None
     return proc.returncode, stdout
 
-
-def stop_media_pipeline():
-    status, output = execute(['sudo systemctl stop job_agent.service'])
-    if status == 0:
-        print("Successfully stopped mediapipeline")
-    else:
-        print("Stopping mediapipeline failed")
-        print(output)
-    return status
-
-
-def start_media_pipeline():
-    status, output = execute(['sudo systemctl start job_agent.service'])
-    if status == 0:
-        print('Successfully started media pipeline.')
-    else:
-        print('Starting media pipeline failed.')
-        print(output)
-    return status
-
-#Will be handled by OCC
-def container_exists():
-    status, output = execute(['sudo runc list -f json'])
-    if status != 0:
-        print(output)
-        sys.exit('Error fetching containers')
-
-    containers = json.loads(output)
-    if containers is None:
-        return False
-
-    for container in containers:
-        if container.get('id') == DEFAULT_CONTAINER_NAME:
-            return True
-
-    return False
-
-
-#Will be handled by OCC
-def stop_container():
-    status, output = execute(['sudo runc delete ' + DEFAULT_CONTAINER_NAME])
-    if status != 0:
-        print(output)
-        sys.exit('Failed to delete runc container')
-
-    print("Successfully stopped application")
-
-
-#Will be handled by OCC
-def start_container():
-    status, output = execute(['sudo runc create -b ' + RUNC_DIR + ' ' + DEFAULT_CONTAINER_NAME], runtime_print_output=True)
-    if status != 0:
-        sys.exit('Failed to create runc container')
-
-    status, output = execute(['sudo runc start ' + DEFAULT_CONTAINER_NAME])
-    if status != 0:
-        print(output)
-        sys.exit('Failed to start runc container')
-
-    print("Successfully started application")
-
-
 def serialize_dict_with_quote(dict_to_prt, option):
     res = ''
     for key in dict_to_prt:
@@ -478,37 +416,6 @@ def build_package(docker_build=True):
     print(json.dumps(asset_template, indent=4))
     print("Container asset for the package has been succesfully built at ", image_dst_path)
 
-def start():
-    if container_exists():
-        sys.exit('Application is already running.  Please restart')
-
-    if start_media_pipeline() != 0:
-        sys.exit('Failed to run application due to media pipeline failure.')
-
-    time.sleep(30)
-    start_container()
-
-
-def stop(print_app_log=True):
-    # Stop mediapipeline
-    if stop_media_pipeline() != 0:
-        sys.exit('Failed to stop mediapipeline.')
-
-    # Stop container
-    if container_exists():
-        stop_container()
-    elif print_app_log:
-        print('No running application')
-
-
-def restart():
-    #Stop
-    stop()
-
-    #Start
-    start()
-
-
 def compile_model():
     job_id = str(uuid.uuid4()).split('-')[0]
     role_arn, input_config, output_config = get_model_compilation_info(job_id)
@@ -778,7 +685,7 @@ def add_abstract_camera():
                             })
         for node in graph_json["nodeGraph"]["nodes"]:
             if node["name"] == args.name:
-                print("Abstract Camera " + args.name + " already exists")
+                print("Package " + args.name + " already exists")
                 return
         graph_json["nodeGraph"]["nodes"].append({
                             "name": args.name,
@@ -812,7 +719,7 @@ def add_data_sink():
                             })
         for node in graph_json["nodeGraph"]["nodes"]:
             if node["name"] == args.name:
-                print("Data Sink " + args.name + " already exists")
+                print("Package " + args.name + " already exists")
                 return
         graph_json["nodeGraph"]["nodes"].append({
                             "name": args.name,
@@ -857,13 +764,6 @@ def init_project():
     graph_path = os.path.join(dst_path, "graphs", "graph.json")
     shutil.move(graph_path, new_graph_path)
     print('Successfully created the project skeleton at ' + dst_path)
-
-def create_file_based_source():
-    src_path = os.path.join(CLI_DIR, FILE_VIDEO_SOURCE_PACKAGE_PATH)
-    dst_path = os.path.join(os.getcwd(), "packages/video_from_file_package")
-    shutil.copytree(src_path, dst_path)
-    print('Successfully created the file based video source package at ' + dst_path)
-    print('Update assetUri in package.json to point to the right video')
 
 @verify_cwd_is_project_root
 def package_application():
@@ -1025,32 +925,6 @@ def import_application():
         json.dump(graph_json, f, indent=4)
     print("Sucessfully imported application")
     
-#Sideloading Code
-device_location = 'mht@10.92.200.61:/data/app_sideload'
-def setup_app_on_device():
-    status, output = execute(['scp -r ' + os.getcwd() + ' ' + device_location])
-    if status != 0:
-        print(output)
-        sys.exit('Error transferring app to the device')
-
-def deploy_package_on_device():
-    app_name = os.path.basename(os.getcwd())
-    for package in args.packages:
-        print(device_location, app_name, package)
-        status, output = execute(['scp -r ' + package + ' ' + os.path.join(device_location, app_name, "packages")], runtime_print_output=True)
-        if status != 0:
-            print(output)
-            sys.exit('Error transferring package ' + package + ' to the device')
-    deploy_app_metadata = {}
-    deploy_app_metadata["application_path"] = "/data/app_sideload/" + app_name
-    deploy_app_metadata["packages_to_build"] = args.packages
-    deploy_app_metadata["asset_names"] = args.asset_names
-
-    with open("deploy_application.json", "w+") as f:
-        json.dump(deploy_app_metadata, f, indent=4)
-    status, output = execute(['scp deploy_application.json ' + device_location], runtime_print_output=True)
-    execute(['rm deploy_application.json'])
-
 def setup_panorama_service_cli():
     api_json_path = os.path.join(os.getcwd(), "OmniCloudServiceLambda.api.json")
     shutil.copy(os.path.join(CLI_DIR, SERVICE_CLI_APIS), api_json_path)
@@ -1116,22 +990,6 @@ def main(passed_args=None):
     init_project_parser.add_argument("--name", required=True, help="Name of the project")
     init_project_parser.set_defaults(func=init_project)
 
-    compile_model_parser = subparsers.add_parser("compile-model", help="Compile ML model and export the artifacts to S3 bucket")
-    compile_model_parser.add_argument("--model-s3-input-uri", required=True, help="S3 URI of the raw input model")
-    compile_model_parser.add_argument("--model-s3-output-uri", required=True, help="S3 URI of the output folder")
-    compile_model_parser.add_argument("--framework", required=True, help="Model framework [TFLITE, DARKNET, TENSORFLOW, ONNX, KERAS, SKLEARN, MXNET, PYTORCH, XGBOOST]")
-    compile_model_parser.add_argument("--input-shape", required=True, nargs="+", type=int, help="Input shape for the model as a list")
-    compile_model_parser.add_argument("--compile-role-arn", required=True, help="Amazon Resource Name (ARN) of an IAM role that enables Amazon SageMaker to perform tasks on your behalf")
-    compile_model_parser.set_defaults(func=compile_model)
-
-    #Deprecated, need to remove. Replaced with add-raw-model
-    download_raw_model_parser = subparsers.add_parser("download-raw-model", help="Download raw model artifacts")
-    download_raw_model_parser.add_argument("--model-asset-name", help="Name for model being downloaded")
-    download_raw_model_parser.add_argument("--model-s3-uri", help="S3 URI of the raw model")
-    download_raw_model_parser.add_argument("--descriptor-path", help="Path for the descriptor json for the model")
-    download_raw_model_parser.add_argument("--packages-path", nargs="+", type=str, default=[], help="List of packages where this model will be used. Downloaded model asset will be directly defined in those packages if provided")
-    download_raw_model_parser.set_defaults(func=download_raw_model)
-
     add_model_parser = subparsers.add_parser("add-raw-model", help="Add raw model artifacts")
     add_model_parser.add_argument("--model-asset-name", required=True, help="Name for model being downloaded")
     add_model_group = add_model_parser.add_mutually_exclusive_group(required=True)
@@ -1140,12 +998,6 @@ def main(passed_args=None):
     add_model_parser.add_argument("--descriptor-path", required=True, help="Path for the descriptor json for the model")
     add_model_parser.add_argument("--packages-path", nargs="+", type=str, default=[], help="List of packages where this model will be used. Downloaded model asset will be directly defined in those packages if provided")
     add_model_parser.set_defaults(func=add_raw_model)
-
-    download_model_parser = subparsers.add_parser("download-compiled-model", help="Download compiled model artifacts")
-    download_model_parser.add_argument("--model-asset-name", required=True, help="Name for model being downloaded")
-    download_model_parser.add_argument("--model-s3-uri", help="S3 URI of the pre-compiled model")
-    download_model_parser.add_argument('-ext4fs', action='store_true')
-    download_model_parser.set_defaults(func=download_compiled_model)
 
     create_package_parser = subparsers.add_parser("create-package", help="Create a new package")
     create_package_parser.add_argument("--name", required=True, help="Name of the package")
@@ -1160,12 +1012,8 @@ def main(passed_args=None):
     create_package_parser.add_argument("--name", required=True, help="Name of the package node")
     create_package_parser.set_defaults(func=add_panorama_package)
 
-    create_fs_parser = subparsers.add_parser("create-fs", help="Creates fs for a given tar file")
-    create_fs_parser.add_argument("--file-path", required=True, help="Path for the tar file")
-    create_fs_parser.add_argument('-ext4fs', action='store_true')
-    create_fs_parser.set_defaults(func=create_fs)
-
-    build_parser = subparsers.add_parser("build", help="To be deprecated, used to build the package. Same as build-container command")
+    #Deprecated, need to remove. Replaced with build-container command
+    build_parser = subparsers.add_parser("build", help="(Deprecated) Use build-container instead. Build the package.")
     build_parser.add_argument("--container-asset-name",  required=True, help="Name of the package")
     build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
     build_parser.set_defaults(func=build)
@@ -1193,14 +1041,6 @@ def main(passed_args=None):
     service_cli_setup_parser.add_argument("--region", required=True, help="Region for endpoint")
     service_cli_setup_parser.add_argument("--stage", required=True, help="Stage for endpoint")
     service_cli_setup_parser.set_defaults(func=setup_panorama_service_cli)
-
-    app_device_setup_parser = subparsers.add_parser("setup-app-on-device", help="Initial setup for running the application on the device")
-    app_device_setup_parser.set_defaults(func=setup_app_on_device)
-
-    deploy_packges_device_parser = subparsers.add_parser("deploy-on-device", help="Deploys packages onto the device")
-    deploy_packges_device_parser.add_argument("--packages", required=True, nargs="+", type=str, help="List of packages to deploy")
-    deploy_packges_device_parser.add_argument("--asset-names", required=True, nargs="+", type=str, help="List of asset names for the packages specified")
-    deploy_packges_device_parser.set_defaults(func=deploy_package_on_device)
 
     if passed_args is None and len(sys.argv) == 1:
         print(parser.print_help())
