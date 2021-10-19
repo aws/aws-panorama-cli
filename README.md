@@ -16,20 +16,6 @@ $ ./install.sh
 Do not delete this directory. Created symlink to panorama-cli in /usr/local/bin. Run git pull for updates.
 Successfully installed panorama-cli
 ```
-(##### Internal)
-Since Panorama service is not public yet, we have to setup the CLI for that as well. Follow the steps below for that to setup the CLI with PDX Gamma as endpoint.
-
-Panorama currently supports PDX, IAD, DUB and YUL for regions.
-
-```Shell
-$ panorama-cli setup-panorama-service-cli --region PDX --stage Gamma
-```
-
-If you want to use the PDX Prod endpoint instead, you can use pass that as the stage
-
-```Shell
-$ panorama-cli setup-panorama-service-cli --region PDX --stage Prod
-```
 
 ## Commands
 
