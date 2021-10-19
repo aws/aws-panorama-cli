@@ -1,2 +1,1 @@
-# Implement your code here.
-__version__ = '0.1'
+__version__ = '0.6.10'

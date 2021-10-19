@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import time
 import re
+from __init__ import __version__
 
 # Static values
 RUNNING_APP_LIST = 'running_apps'
@@ -983,7 +984,7 @@ def setup_panorama_service_cli():
     
 def main(passed_args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", action='version', version='%(prog)s 0.6.9', help="Version of panorama-cli")
+    parser.add_argument("--version", action='version', version='%(prog)s ' + __version__, help="Version of panorama-cli")
     subparsers = parser.add_subparsers()
 
     init_project_parser = subparsers.add_parser("init-project", help="Initializes and creates the directory structure for the project")
