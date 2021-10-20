@@ -1,0 +1,58 @@
+{
+    "nodePackage":
+    {
+        "envelopeVersion": "2021-01-01",
+        "description": "RTSP/ONVIF camera data source node package",
+        "assets": 
+        [
+            {
+                "name": "rtsp_camera",
+                "implementations": 
+                [
+                    {
+                        "type": "system",
+                        "assetUri": "source/video/camera/rtsp/source_rtsp"
+                    }
+                ]
+            }
+        ],
+        "interfaces": 
+        [
+            {
+                "description" : "Default desc",
+                "name": "rtsp_interface",
+                "category": "media_source",
+                "asset": "rtsp_camera",
+                "inputs":
+                [
+                    {
+                        "description": "Camera username",
+                        "name": "username",
+                        "type": "string",
+                        "default": "<username>"
+                    },
+                    {   
+                        "description": "Camera password. Use empty string if there's no password",
+                        "name": "password",
+                        "type": "string",
+                        "default": "<password>"
+                    },
+                    {
+                        "description": "Camera streamUrl",
+                        "name": "streamUrl",
+                        "type": "string",
+                        "default": "rtsp://<stream url>"
+                    }       
+                ],
+                "outputs":
+                [
+                    {
+                        "description": "Video stream output",
+                        "name": "video_out",
+                        "type": "media"
+                    }
+                ]
+            }           
+        ]
+    }
+}

@@ -1,0 +1,60 @@
+{
+    "nodePackage":
+    {
+        "envelopeVersion": "2021-01-01",
+
+        "description": "File based video stream data source node package",
+
+        "assets":
+        [
+            {
+                "name": "default",
+                "implementations":
+                [
+                    {
+                        "type": "system",
+                        "assetUri": "source/video/file"
+                    }
+                ]
+            }
+        ],
+
+        "interfaces":
+        [
+            {
+                "name": "default",
+                "asset": "default",
+                "inputs":
+                [
+                    {
+                        "description": "Array of source file names",
+                        "name": "sourceNames",
+                        "type": "string[]"
+                    },
+                    {
+                        "description": "Number of times to repeat the sequence; use 0 for infinite video sequence",
+                        "name": "loopCount",
+                        "type": "int32",
+                        "default": 0,
+                        "minimum": 0
+                    },
+                    {
+                        "description": "Output frame rate; use 0 to auto-detect",
+                        "name": "fps",
+                        "type": "float32",
+                        "default": 0,
+                        "minimum": 0
+                    }
+                ],
+                "outputs":
+                [
+                    {
+                        "description": "Video stream output",
+                        "name": "videoOut",
+                        "type": "media"
+                    }
+                ]
+            }
+        ]
+    }
+}
