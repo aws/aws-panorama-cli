@@ -7,14 +7,26 @@ The purpose of this package is to provide a CLI tool to facilitate Panorama deve
 You will need Docker and AWS CLI installed on your machine.
 Docker is required for building a package and AWS CLI is needed for downloading a model from S3 and packaging the application to Panorama Cloud.
 
-## Setup
+Docker Setup - https://docs.docker.com/get-docker/
+
+AWS CLI Setup - https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html
+
+AWS CLI version should be >=2.3.0 for v2 and >=1.21.0 for v1
+
+## Install
+
+Panorama CLI is only supported on Linux and macOS right now.
 
 ```Shell
-$ git clone https://github.com/aws/aws-panorama-cli
-$ cd aws-panorama-cli
-$ ./install.sh
-Do not delete this directory. Created symlink to panorama-cli in /usr/local/bin. Run git pull for updates.
-Successfully installed panorama-cli
+$ pip3 install panoramacli
+```
+
+## Upgrade
+
+To upgrade to the latest release
+
+```Shell
+$ pip3 install --upgrade panoramacli
 ```
 
 ## Commands
@@ -258,7 +270,7 @@ At this point, `graph.json` under the graphs directory looks like this
             {
                 "name": "panorama::abstract_rtsp_media_source",
                 "version": "1.0"
-            },
+            }
         ],
         "nodes": [
             {
@@ -299,7 +311,6 @@ Next thing we will do is set up the edges for the application graph. `people_cou
                 "consumer": "people_counter_container_binary_node.video_in"
             },
         ]
-    }
 ```
 
 #### Registering and Uploading all local packages in the Cloud
