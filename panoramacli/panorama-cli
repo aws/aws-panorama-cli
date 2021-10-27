@@ -2,6 +2,7 @@
 #!/usr/bin/python3
 
 from posixpath import join
+from panoramacli import __version__
 import sys
 import os
 import subprocess
@@ -13,7 +14,7 @@ import argparse
 import hashlib
 import time
 import re
-from __init__ import __version__
+import pkg_resources
 
 # Static values
 RUNNING_APP_LIST = 'running_apps'
@@ -26,17 +27,13 @@ INPUT_SHAPE = 'input_shape'
 FRAMEWORK = 'framework'
 COMPILE_OUTPUT_URI = 'model_s3_output_uri'
 
-DEFAULT_IMAGE_NAME = 'panorama_img'
-DEFAULT_CONTAINER_NAME = 'panorama_ctn'
-PANORAMA_DIR = 'Panorama'
-PANORAMA_RUNC_TAR = 'panorama_runc.tar'
-RUNC_DIR = '/data/runc'
-UNTAR_SCRIPT_PATH = RUNC_DIR + '/untar.sh'
-
-resouce_dir = os.path.join(os.path.dirname(__file__), 'resources')
+pypi_package_name = "panoramacli"
 VAR_PATH = 'var.json'
 PROJECT_SKELETON_PATH = 'resources/project_skeleton'
 PACKAGE_SKELETON_PATH = 'resources/package_skeleton'
+GRAPH_TEMPLATE_PATH = 'resources/graph_template.json'
+PACKAGE_TEMPLATE_PATH = 'resources/package_template.json'
+DOCKERFILE_PATH = 'resources/Dockerfile'
 DESCRIPTOR_CONTAINER_TEMPLATE_PATH = 'resources/descriptor_container_template.json'
 DESCRIPTOR_MODEL_TEMPLATE_PATH = 'resources/descriptor_model_template.json'
 DOWNLOAD_ASSET_TEMPLATE_PATH = 'resources/download_model.json'
@@ -45,7 +42,6 @@ DATASINK_PACAKAGE_TEMPLATE_PATH='resources/datasink_package.json'
 BUILD_ASSET_TEMPLATE_PATH = 'resources/build_package.json'
 GRAPH_NODE_TEMPLATE_PATH = 'resources/graph_node_template.json'
 PACKAGE_INTERFACE_TEMPLATE_PATH = 'resources/package_interface_template.json'
-FILE_VIDEO_SOURCE_PACKAGE_PATH = 'resources/video_from_file_package'
 SERVICE_CLI_APIS = 'resources/OmniCloudServiceLambda.api.json'
 JOB_ID = 'job_id'
 COMPILATION_JOB_STATUS = 'CompilationJobStatus'
@@ -300,16 +296,19 @@ def add_graph_node(node_name, package_interface):
     with open(graph_json_path, "r+") as f:
         graph_json = json.load(f)
     
-    node_blob_path = os.path.join(CLI_DIR, GRAPH_NODE_TEMPLATE_PATH)
-    node_template = {}
-    with open(node_blob_path) as f:
-        node_template = json.load(f)
-        node_template["name"] = node_name
-        node_template["interface"] = package_interface
+    node_template = json.loads(pkg_resources.resource_string(pypi_package_name, GRAPH_NODE_TEMPLATE_PATH))
+    node_template["name"] = node_name
+    node_template["interface"] = package_interface
     graph_json["nodeGraph"]["nodes"].append(node_template)
 
     with open(graph_json_path, "r+") as f:
         json.dump(graph_json, f, indent=4)
+
+def interface_exists(interfaces, asset_name):
+    for interface in interfaces:
+        if interface["asset"] == asset_name:
+            return True
+    return False
 
 def get_package_name(package_path):
     package_dir = os.path.basename(os.path.normpath(package_path))
@@ -354,21 +353,15 @@ def build_package(docker_build=True):
     image_dst_path = os.path.join(os.getcwd(), "assets/" + image_name)
     shutil.move(image_src_path, image_dst_path)
 
-    assest_blob_path = os.path.join(CLI_DIR, BUILD_ASSET_TEMPLATE_PATH)
-    asset_template = {}
-    with open(assest_blob_path) as f:
-        asset_template = json.load(f)
-        asset_template["name"] = asset_name
-        asset_template["implementations"][0]["assetUri"] = image_name
-        asset_template["implementations"][0]["descriptorUri"] = descriptor_uri
+    asset_template = json.loads(pkg_resources.resource_string(pypi_package_name, BUILD_ASSET_TEMPLATE_PATH))
+    asset_template["name"] = asset_name
+    asset_template["implementations"][0]["assetUri"] = image_name
+    asset_template["implementations"][0]["descriptorUri"] = descriptor_uri
     
-    interface_blob_path = os.path.join(CLI_DIR, PACKAGE_INTERFACE_TEMPLATE_PATH)
-    interface_template = {}
-    with open(interface_blob_path) as f:
-        interface_template = json.load(f)
-        interface_template["name"] = asset_name + "_interface"
-        interface_template["category"] = "business_logic"
-        interface_template["asset"] = asset_name
+    interface_template = json.loads(pkg_resources.resource_string(pypi_package_name, PACKAGE_INTERFACE_TEMPLATE_PATH))
+    interface_template["name"] = asset_name + "_interface"
+    interface_template["category"] = "business_logic"
+    interface_template["asset"] = asset_name
     
     package_json_path = os.path.join(args.package_path, "package.json")
     assets_dir = os.path.join(os.getcwd(), 'assets')
@@ -396,7 +389,7 @@ def build_package(docker_build=True):
             else:
                 assets.append(asset)
         package_json["nodePackage"]["assets"] = assets
-        if new_asset:
+        if new_asset and not interface_exists(package_json["nodePackage"]["interfaces"], asset_name):
             package_json["nodePackage"]["interfaces"].append(interface_template)
             default_node_name = asset_name + "_node"
             account_id = get_aws_account_id()
@@ -470,21 +463,15 @@ def add_raw_model():
     final_model_dst_path = os.path.join(os.getcwd(), "assets", model_tar_name)
     shutil.move(dst_model_path, final_model_dst_path)
     
-    assest_blob_path = os.path.join(CLI_DIR, DOWNLOAD_ASSET_TEMPLATE_PATH)
-    asset_template = {}
-    with open(assest_blob_path) as f:
-        asset_template = json.load(f)
-        asset_template["name"] = args.model_asset_name
-        asset_template["implementations"][0]["assetUri"] = model_tar_name
-        asset_template["implementations"][0]["descriptorUri"] = descriptor_uri
+    asset_template = json.loads(pkg_resources.resource_string(pypi_package_name, DOWNLOAD_ASSET_TEMPLATE_PATH))
+    asset_template["name"] = args.model_asset_name
+    asset_template["implementations"][0]["assetUri"] = model_tar_name
+    asset_template["implementations"][0]["descriptorUri"] = descriptor_uri
     
-    interface_blob_path = os.path.join(CLI_DIR, PACKAGE_INTERFACE_TEMPLATE_PATH)
-    interface_template = {}
-    with open(interface_blob_path) as f:
-        interface_template = json.load(f)
-        interface_template["name"] = args.model_asset_name + "_interface"
-        interface_template["category"] = "ml_model"
-        interface_template["asset"] = args.model_asset_name
+    interface_template = json.loads(pkg_resources.resource_string(pypi_package_name, PACKAGE_INTERFACE_TEMPLATE_PATH))
+    interface_template["name"] = args.model_asset_name + "_interface"
+    interface_template["category"] = "ml_model"
+    interface_template["asset"] = args.model_asset_name
 
     if args.packages_path:
         assets_dir = os.path.join(os.getcwd(), 'assets')
@@ -514,7 +501,7 @@ def add_raw_model():
                     else:
                         assets.append(asset)
                 package_json["nodePackage"]["assets"] = assets
-                if new_asset:
+                if new_asset and not interface_exists(package_json["nodePackage"]["interfaces"], args.model_asset_name):
                     package_json["nodePackage"]["interfaces"].append(interface_template)
                     default_node_name = args.model_asset_name
                     account_id = get_aws_account_id()
@@ -593,20 +580,51 @@ def download_compiled_model():
         print("Copy the following in the assets section of package.json")
         print(json.dumps(asset_template, indent=4))
 
+def create_template_file(path, file_name, template_path, is_json=True):
+    file_path = os.path.join(path, file_name)
+    file_template = {}
+    if is_json:
+        file_template = json.loads(pkg_resources.resource_string(pypi_package_name, template_path))
+        with open(file_path, "w") as f:
+            json.dump(file_template, f, indent=4)
+    else:
+        file_template = pkg_resources.resource_string(pypi_package_name, template_path)
+        with open(file_path, "wb") as f:
+            f.write(file_template)
+
 @verify_cwd_is_project_root
 def create_package():
     package_types = ["Container", "Model", "Camera", "Datasink"]
     if args.type not in package_types:
         throw_error(1, None, "Invalid package type. Provided type " + args.type + " not in " + ' '.join(package_types))
-    template_path = os.path.join(CLI_DIR, PACKAGE_SKELETON_PATH)
     account_id = get_aws_account_id()
     package_version = args.version
     pkg_path = os.path.join(os.getcwd(), "packages", account_id + "-" + args.name + "-" + package_version)
     if os.path.exists(pkg_path):
         print("Package " + args.name + " already exists")
         return
-    shutil.copytree(template_path, pkg_path)
+    os.mkdir(pkg_path)
 
+    if args.camera or args.type == "Camera":
+        create_template_file(pkg_path, 'package.json', CAMERA_PACAKAGE_TEMPLATE_PATH)
+        default_node_name = args.name
+        full_interface_path = account_id + "::" + args.name + ".rtsp_interface"
+        add_graph_node(default_node_name, full_interface_path)
+    elif args.type == "Datasink":
+        create_template_file(pkg_path, 'package.json', DATASINK_PACAKAGE_TEMPLATE_PATH)
+        default_node_name = args.name
+        full_interface_path = account_id + "::" + args.name + ".sink_interface"
+        add_graph_node(default_node_name, full_interface_path)
+    elif args.model or args.type == "Model":
+        create_template_file(pkg_path, 'package.json', PACKAGE_TEMPLATE_PATH)
+        create_template_file(pkg_path, 'descriptor.json', DESCRIPTOR_MODEL_TEMPLATE_PATH)
+    else: #Container Package
+        src_dir = os.path.join(pkg_path, "src")
+        os.mkdir(src_dir)
+        create_template_file(pkg_path, 'descriptor.json', DESCRIPTOR_CONTAINER_TEMPLATE_PATH)
+        create_template_file(pkg_path, 'package.json', PACKAGE_TEMPLATE_PATH)
+        create_template_file(pkg_path, 'Dockerfile', DOCKERFILE_PATH, is_json=False)
+    
     package_json_path = os.path.join(pkg_path, "package.json")
     with open(package_json_path, "r+") as f:
         package_json = json.load(f)
@@ -628,36 +646,6 @@ def create_package():
         f.seek(0)
         json.dump(graph_json, f, indent=4)
         f.truncate()
-
-    if args.camera or args.type == "Camera":
-        shutil.rmtree(os.path.join(pkg_path, "src"))
-        os.remove(os.path.join(pkg_path, "Dockerfile"))
-        os.remove(os.path.join(pkg_path, "descriptor.json"))
-        descriptor_src_path = os.path.join(CLI_DIR, CAMERA_PACAKAGE_TEMPLATE_PATH)
-        descriptor_dst_path = os.path.join(pkg_path, "package.json")
-        shutil.copyfile(descriptor_src_path, descriptor_dst_path)
-        default_node_name = args.name
-        account_id = get_aws_account_id()
-        full_interface_path = account_id + "::" + args.name + ".rtsp_interface"
-        add_graph_node(default_node_name, full_interface_path)
-    elif args.type == "Datasink":
-        shutil.rmtree(os.path.join(pkg_path, "src"))
-        os.remove(os.path.join(pkg_path, "Dockerfile"))
-        os.remove(os.path.join(pkg_path, "descriptor.json"))
-        descriptor_src_path = os.path.join(CLI_DIR, DATASINK_PACAKAGE_TEMPLATE_PATH)
-        descriptor_dst_path = os.path.join(pkg_path, "package.json")
-        shutil.copyfile(descriptor_src_path, descriptor_dst_path)
-        default_node_name = args.name
-        account_id = get_aws_account_id()
-        full_interface_path = account_id + "::" + args.name + ".sink_interface"
-        add_graph_node(default_node_name, full_interface_path)
-    elif args.model or args.type == "Model":
-        shutil.rmtree(os.path.join(pkg_path, "src"))
-        os.remove(os.path.join(pkg_path, "Dockerfile"))
-        os.remove(os.path.join(pkg_path, "descriptor.json"))
-        descriptor_src_path = os.path.join(CLI_DIR, DESCRIPTOR_MODEL_TEMPLATE_PATH)
-        descriptor_dst_path = os.path.join(pkg_path, "descriptor.json")
-        shutil.copyfile(descriptor_src_path, descriptor_dst_path)
 
     #Check if the package already exists
     status, output = execute(['aws panorama describe-package --output json --package-id packageName/' + args.name])
@@ -752,18 +740,20 @@ def create_fs():
     print("Time taken to create fs image", time.time() - start)
 
 def init_project():
-    src_path = os.path.join(CLI_DIR, PROJECT_SKELETON_PATH)
-    dst_path = os.path.join(os.getcwd(), args.name)
-    if os.path.exists(dst_path):
+    project_path = os.path.join(os.getcwd(), args.name)
+    if os.path.exists(project_path):
         print("Application " + args.name + " already exists")
         return
-    shutil.copytree(src_path, dst_path)
-    new_graph_dir = os.path.join(dst_path, "graphs", args.name)
+    os.mkdir(project_path)
+    project_dirs = ['assets', 'graphs', 'packages']
+    for dir in project_dirs:
+        dir_path = os.path.join(project_path, dir)
+        os.mkdir(dir_path)
+
+    new_graph_dir = os.path.join(project_path, "graphs", args.name)  
     os.mkdir(new_graph_dir)
-    new_graph_path = os.path.join(new_graph_dir, "graph.json")
-    graph_path = os.path.join(dst_path, "graphs", "graph.json")
-    shutil.move(graph_path, new_graph_path)
-    print('Successfully created the project skeleton at ' + dst_path)
+    create_template_file(new_graph_dir, 'graph.json', GRAPH_TEMPLATE_PATH)
+    print('Successfully created the project skeleton at ' + project_path)
 
 @verify_cwd_is_project_root
 def package_application():
