@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+1.1.2
+======
+
+* Updating requirements to Python>=3.6
+* Adding install.sh back to support install instructions from v1.0.0
+
 1.1.0
 ======
 
