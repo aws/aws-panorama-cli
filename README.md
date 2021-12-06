@@ -7,9 +7,27 @@ The purpose of this package is to provide a CLI tool to facilitate Panorama deve
 You will need Docker and AWS CLI installed on your machine.
 Docker is required for building a package and AWS CLI is needed for downloading a model from S3 and packaging the application to Panorama Cloud.
 
-Docker Setup - https://docs.docker.com/get-docker/
+##### Docker Setup
 
-AWS CLI Setup - https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html
+https://docs.docker.com/get-docker/
+
+Since Panorama CLI builds ARM Docker images, it needs these extra steps on Linux to build cross platform images. Installing Docker Desktop on Mac should automatically handle cross platform builds.
+
+On Debian based distros
+```Shell
+$ sudo apt-get install qemu binfmt-support qemu-user-static
+$ sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+```
+
+On CentOS/RHEL based distros
+```Shell
+$ sudo yum install qemu binfmt-support qemu-user-static
+$ sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+```
+
+##### AWS CLI Setup
+
+https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html
 
 AWS CLI version should be >=2.3.0 for v2 and >=1.21.0 for v1
 
