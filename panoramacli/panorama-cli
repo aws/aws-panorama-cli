@@ -325,7 +325,10 @@ def build_package(docker_build=True):
         os.remove(asset_path)
     
     if docker_build:
-        commands = ["TMPDIR=$(pwd) docker build -t " + asset_name + " " + args.package_path + " --pull", "docker export --output=" + asset_name + ".tar $(docker create " + asset_name + ":latest)"]
+        if args.local_image:
+            commands = ["TMPDIR=$(pwd) docker build -t " + asset_name + " " + args.package_path, "docker export --output=" + asset_name + ".tar $(docker create " + asset_name + ":latest)"]
+        else:
+            commands = ["TMPDIR=$(pwd) docker build -t " + asset_name + " " + args.package_path + " --pull", "docker export --output=" + asset_name + ".tar $(docker create " + asset_name + ":latest)"]
     else:
         commands = ["docker export --output=" + asset_name + ".tar $(docker create " + args.container_image_uri + ")"]
     for cmd in commands:
@@ -950,11 +953,13 @@ def main(passed_args=None):
     build_parser = subparsers.add_parser("build", help="(Deprecated) Use build-container instead. Build the package.")
     build_parser.add_argument("--container-asset-name",  required=True, help="Name of the package")
     build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
+    build_parser.add_argument("--local-image", action="store_true", help="Allow Docker to use local images rather than pull the latest image")
     build_parser.set_defaults(func=build)
 
     build_parser = subparsers.add_parser("build-container", help="Build the package")
     build_parser.add_argument("--container-asset-name",  required=True, help="Name of the package")
     build_parser.add_argument("--package-path",  required=True, help="Path for the package to be built")
+    build_parser.add_argument("--local-image", action="store_true", help="Allow Docker to use local images rather than pull the latest image")
     build_parser.set_defaults(func=build)
 
     export_parser = subparsers.add_parser("export-container", help="Export a pre-built docker container to your package")
