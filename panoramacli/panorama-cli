@@ -343,7 +343,7 @@ def build_package(docker_build=True):
     shutil.copyfile(descriptor_path, descriptor_dst_final_path)
 
     image_name = asset_name + ".tar"
-    commands= ["gzip -9 " + image_name]
+    commands= ["gzip -1 " + image_name]
     for cmd in commands:
         print(cmd)
         return_code, out = execute([cmd], runtime_print_output=True)
