@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+1.1.3
+======
+
+* Use faster compression setting for GZIP command
+* Local docker image support during container build
+
 1.1.2
 ======
 
