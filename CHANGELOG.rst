@@ -2,6 +2,11 @@
 CHANGELOG
 =========
 
+1.1.4
+======
+
+* Don't overwrite asset requirements while re-building containers
+
 1.1.3
 ======
 

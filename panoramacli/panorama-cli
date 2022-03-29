@@ -370,7 +370,7 @@ def build_package(docker_build=True):
     assets_dir = os.path.join(os.getcwd(), 'assets')
     with open(package_json_path, "r+") as f:
         package_json = json.load(f)
-        assets = [asset_template]
+        assets = []
         new_asset = True
         for asset in package_json["nodePackage"]["assets"]:
             if asset["name"] == asset_name:
@@ -389,8 +389,12 @@ def build_package(docker_build=True):
                         descriptor_path = os.path.join(assets_dir, old_descriptor_uri)
                         if os.path.exists(descriptor_path):
                             os.remove(descriptor_path)
+                    # Don't overwrite existing requirements 
+                    if "requirements" in implementation:
+                        asset_template["implementations"][0]["requirements"] = implementation["requirements"]
             else:
                 assets.append(asset)
+        assets.append(asset_template)
         package_json["nodePackage"]["assets"] = assets
         if new_asset and not interface_exists(package_json["nodePackage"]["interfaces"], asset_name):
             package_json["nodePackage"]["interfaces"].append(interface_template)
