@@ -820,6 +820,11 @@ def package_application():
                 continue
             else:
                 print("Patch version for the package " + package_json_hash)
+            if patch_version != package_json_hash and package_version_info["Status"] == "REGISTER_COMPLETED":
+                status, output = execute(["aws panorama deregister-package-version --output json --package-id " + package_id + " --package-version " + package_version + " --patch-version " + patch_version], runtime_print_output=True)
+                if status == 0:
+                    print("Deregistering previous patch version " + patch_version)
+                #Ignoring the error here from deregister as it can confuse users that there is something wrong with the package upload.
 
         assets_not_found = []
         for asset in package_json["nodePackage"]["assets"]:
