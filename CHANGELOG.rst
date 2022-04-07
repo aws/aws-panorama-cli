@@ -2,6 +2,11 @@
 CHANGELOG
 =========
 
+1.1.5
+======
+
+* Deregister previous patch version while registering new patch version for a package
+
 1.1.4
 ======
 
