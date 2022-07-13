@@ -2,6 +2,11 @@
 CHANGELOG
 =========
 
+1.1.6
+======
+
+* Previous patch version is deregistered only after register package version succeeds
+
 1.1.5
 ======
 

@@ -808,6 +808,7 @@ def package_application():
                 package_version = package_json["nodePackage"]["version"]  
         
         #Ignore upload if the same patch version of a package is already registered
+        previous_latest_patch_version = None
         status, output = execute(['aws panorama describe-package-version --output json --package-id ' + package_id + ' --package-version ' + package_version])
         if status != 0:
             print("Package Version " + package_version + " is not yet registered, preparing upload")
@@ -821,10 +822,7 @@ def package_application():
             else:
                 print("Patch version for the package " + package_json_hash)
             if patch_version != package_json_hash and package_version_info["Status"] == "REGISTER_COMPLETED":
-                status, output = execute(["aws panorama deregister-package-version --output json --package-id " + package_id + " --package-version " + package_version + " --patch-version " + patch_version], runtime_print_output=True)
-                if status == 0:
-                    print("Deregistering previous patch version " + patch_version)
-                #Ignoring the error here from deregister as it can confuse users that there is something wrong with the package upload.
+                previous_latest_patch_version = patch_version
 
         assets_not_found = []
         for asset in package_json["nodePackage"]["assets"]:
@@ -866,6 +864,8 @@ def package_application():
             throw_error(status, output, 'Error registering package json with Panorama')
         print("Called register package version for " + package_name + " with patch version " + package_json_hash)
         registered_packages[package_id] = {"package-version":package_version, "patch-version":package_json_hash, "package-name":package_name}
+        if previous_latest_patch_version:
+            registered_packages[package_id]["previous-latest-patch-version"] = previous_latest_patch_version
     
     #Waiting for register-package-version to finish on cloud
     for package_id in registered_packages:
@@ -879,6 +879,11 @@ def package_application():
                 if package_version_info["Status"] == "REGISTER_COMPLETED":
                     print("Register patch version complete for " + registered_packages[package_id]["package-name"] + " with patch version " + registered_packages[package_id]["patch-version"])
                     pending = False
+                    if "previous-latest-patch-version" in registered_packages[package_id]:
+                        status, output = execute(["aws panorama deregister-package-version --output json --package-id " + package_id + " --package-version " + registered_packages[package_id]["package-version"] + " --patch-version " + registered_packages[package_id]["previous-latest-patch-version"]], runtime_print_output=True)
+                        if status == 0:
+                            print("Deregistering previous latest patch version " + registered_packages[package_id]["previous-latest-patch-version"]  + " for " + registered_packages[package_id]["package-name"])
+                        #Ignoring the error here from deregister as it can confuse users that there is something wrong with the package upload.
                     continue
                 elif package_version_info["Status"] == "REGISTER_PENDING":
                     print("Waiting for register package version to finish for " + registered_packages[package_id]["package-name"])
